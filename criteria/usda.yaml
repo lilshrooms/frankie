@@ -1,0 +1,31 @@
+# USDA Loan Criteria
+# References:
+# - https://www.rd.usda.gov/programs-services/single-family-housing-programs/single-family-housing-guaranteed-loan-program
+# - https://www.rd.usda.gov/sites/default/files/RD-SFH-GuaranteedLoanProgram.pdf
+
+loan_type: usda
+min_credit_score: 640  # Lender overlays may apply
+max_dti: 41  # Can go higher with strong compensating factors
+max_ltv: 100
+max_loan_amount: 377600  # 2024, varies by area
+property_types:
+  - single_family
+  - condo
+  - PUD
+occupancy:
+  - primary_residence
+required_documents:
+  - pay_stubs
+  - W2s
+  - tax_returns
+  - bank_statements
+  - credit_report
+  - purchase_agreement
+  - appraisal (USDA-specific)
+notes:
+  - Income limits apply (115% area median income)
+  - Property must be in eligible rural area
+  - No down payment required
+  - Guarantee fee applies (upfront and annual)
+  - Homeownership education required for some borrowers
+  - Property must meet USDA appraisal/inspection standards 

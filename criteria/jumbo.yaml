@@ -1,0 +1,33 @@
+# Jumbo Loan Criteria
+# References:
+# - https://www.investopedia.com/terms/j/jumboloan.asp
+# - https://www.consumerfinance.gov/ask-cfpb/what-is-a-jumbo-loan-en-1961/
+
+loan_type: jumbo
+min_credit_score: 700  # Typical, varies by lender
+max_dti: 43
+max_ltv: 80  # Sometimes lower
+min_loan_amount: 766551  # Above conforming limit
+property_types:
+  - single_family
+  - condo
+  - PUD
+  - 2-4_unit
+occupancy:
+  - primary_residence
+  - second_home
+  - investment_property
+required_documents:
+  - pay_stubs
+  - W2s
+  - tax_returns
+  - bank_statements
+  - credit_report
+  - purchase_agreement
+  - appraisal (Jumbo-specific)
+notes:
+  - Larger reserves required (6-12 months PITI)
+  - Stricter underwriting (manual review common)
+  - No mortgage insurance (MI) options
+  - May require two appraisals
+  - Interest rates may be higher than conforming 

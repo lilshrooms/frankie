@@ -1,0 +1,35 @@
+# VA Loan Criteria
+# References:
+# - https://www.benefits.va.gov/HOMELOANS/purchaseco_eligibility.asp
+# - https://www.va.gov/housing-assistance/home-loans/eligibility/
+# - https://www.benefits.va.gov/WARMS/pam26_7.asp
+
+loan_type: va
+min_credit_score: 620  # Lender overlays may apply
+max_dti: 41  # Can go higher with strong compensating factors
+max_ltv: 100
+max_loan_amount: 2000000  # No official max, but lenders/VA county limits apply
+property_types:
+  - single_family
+  - condo
+  - PUD
+  - 2-4_unit
+occupancy:
+  - primary_residence
+required_documents:
+  - pay_stubs
+  - W2s
+  - tax_returns
+  - bank_statements
+  - credit_report
+  - purchase_agreement
+  - appraisal (VA-specific)
+  - Certificate of Eligibility (COE)
+notes:
+  - No down payment required (up to county limit)
+  - No monthly mortgage insurance (MIP/PMI)
+  - VA funding fee applies (can be financed)
+  - Residual income requirements
+  - Seller concessions up to 4%
+  - Flexible credit guidelines
+  - Property must meet VA appraisal/inspection standards 

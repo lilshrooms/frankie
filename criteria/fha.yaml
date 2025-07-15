@@ -1,0 +1,33 @@
+# FHA Loan Criteria
+# References:
+# - https://www.hud.gov/program_offices/housing/sfh/ins/sfh203b
+# - https://www.hud.gov/sites/dfiles/OCHCO/documents/40001HSGH.pdf
+# - https://www.hud.gov/program_offices/housing/sfh/ins/sfh1-2c
+
+loan_type: fha
+min_credit_score: 580  # 3.5% down; 500-579 requires 10% down
+max_dti: 43  # Can go higher with strong compensating factors
+max_ltv: 96.5
+max_loan_amount: 498257  # 2024 baseline, varies by county
+property_types:
+  - single_family
+  - condo
+  - PUD
+  - 2-4_unit
+occupancy:
+  - primary_residence
+required_documents:
+  - pay_stubs
+  - W2s
+  - tax_returns
+  - bank_statements
+  - credit_report
+  - purchase_agreement
+  - appraisal (FHA-specific)
+notes:
+  - Upfront and annual MIP required
+  - Gift funds allowed
+  - Non-occupant co-borrowers allowed
+  - 3-year wait after foreclosure, 2 years after bankruptcy
+  - Homeownership education required for some borrowers
+  - Property must meet FHA appraisal/inspection standards 

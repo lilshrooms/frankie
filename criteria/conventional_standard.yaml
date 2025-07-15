@@ -1,15 +1,13 @@
-# Conventional Conforming Loan Criteria (Fannie Mae/Freddie Mac)
+# Standard Conventional Conforming Loan Criteria (Fannie Mae/Freddie Mac)
 # References:
 # - https://singlefamily.fanniemae.com/originating-underwriting/mortgage-products/conventional-mortgages
 # - https://sf.freddiemac.com/working-with-us/loan-products/conventional-loans
-# - https://www.fanniemae.com/content/eligibility_information/llpa-matrix.pdf
 # - https://www.fanniemae.com/content/eligibility_information/loan-limits.pdf
-# - https://sf.freddiemac.com/tools-learning/loan-limits
 
-loan_type: conventional_conforming
-min_credit_score: 620  # Fannie/Freddie minimum, but overlays may apply
-max_dti: 45  # Up to 50% with strong compensating factors; 43-45% is typical
-max_ltv: 97  # HomeReady/Home Possible; 95% for standard
+loan_type: conventional_standard
+min_credit_score: 620  # Minimum per Fannie/Freddie
+max_dti: 45  # Up to 50% with strong compensating factors
+max_ltv: 95  # Standard purchase
 max_loan_amount: 766550  # 2024 baseline, single unit; varies by county
 property_types:
   - single_family
@@ -21,7 +19,7 @@ occupancy:
   - second_home
   - investment_property
 required_documents:
-  - pay_stubs  # https://singlefamily.fanniemae.com/media/9391/display
+  - pay_stubs
   - W2s
   - tax_returns
   - bank_statements
@@ -29,13 +27,13 @@ required_documents:
   - purchase_agreement
   - appraisal
 notes:
-  - No bankruptcies in last 4 years (Chapter 7); 2 years for Chapter 13  # https://singlefamily.fanniemae.com/media/9391/display
+  - No bankruptcies in last 4 years (Ch. 7); 2 years for Ch. 13
   - No foreclosures in last 7 years
   - Stable employment/income history (2 years preferred)
-  - AUS approval required (DU for Fannie, LPA for Freddie)
+  - AUS approval required (DU/LPA)
   - Mortgage insurance required if LTV > 80%
   - Gift funds allowed with restrictions
   - Non-occupant co-borrowers allowed (with restrictions)
   - Loan must be fully amortizing, fixed or ARM
   - Condo projects must be approved
-  - Max 2 financed properties for HomeReady/Home Possible; up to 10 for standard 
+  - Up to 10 financed properties allowed 

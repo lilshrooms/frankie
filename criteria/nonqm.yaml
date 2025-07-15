@@ -1,0 +1,32 @@
+# Non-QM (Non-Qualified Mortgage) Loan Criteria
+# References:
+# - https://www.consumerfinance.gov/ask-cfpb/what-is-a-non-qualified-mortgage-loan-en-2047/
+# - https://www.investopedia.com/non-qualified-mortgage-non-qm-7483347
+
+loan_type: nonqm
+min_credit_score: 620  # Varies widely by lender/product
+max_dti: 50  # Varies
+max_ltv: 90  # Varies
+min_loan_amount: 100000  # Varies
+property_types:
+  - single_family
+  - condo
+  - PUD
+  - 2-4_unit
+occupancy:
+  - primary_residence
+  - second_home
+  - investment_property
+required_documents:
+  - pay_stubs (if applicable)
+  - bank_statements (bank statement loans)
+  - tax_returns (if applicable)
+  - credit_report
+  - purchase_agreement
+  - appraisal
+notes:
+  - Alternative income documentation allowed (bank statement, asset depletion, etc.)
+  - Interest-only, balloon, and other non-standard features allowed
+  - No strict QM/ATR requirements
+  - Higher rates/fees than QM loans
+  - May allow recent credit events (foreclosure, bankruptcy) 

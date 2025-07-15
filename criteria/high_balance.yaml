@@ -1,0 +1,38 @@
+# High-Balance (Conforming Jumbo) Loan Criteria (Fannie Mae/Freddie Mac)
+# References:
+# - https://singlefamily.fanniemae.com/originating-underwriting/mortgage-products/high-balance-mortgages
+# - https://sf.freddiemac.com/working-with-us/loan-products/super-conforming-mortgages
+# - https://www.fanniemae.com/content/eligibility_information/loan-limits.pdf
+
+loan_type: high_balance
+min_credit_score: 700  # Typical, but may vary
+max_dti: 43
+max_ltv: 95  # May be lower for 2-4 units
+max_loan_amount: 1156500  # 2024 high-cost area, single unit; varies by county
+property_types:
+  - single_family
+  - condo
+  - PUD
+  - 2-4_unit
+occupancy:
+  - primary_residence
+  - second_home
+required_documents:
+  - pay_stubs
+  - W2s
+  - tax_returns
+  - bank_statements
+  - credit_report
+  - purchase_agreement
+  - appraisal
+notes:
+  - No bankruptcies in last 4 years (Ch. 7); 2 years for Ch. 13
+  - No foreclosures in last 7 years
+  - Stable employment/income history (2 years preferred)
+  - AUS approval required (DU/LPA)
+  - Mortgage insurance required if LTV > 80%
+  - Gift funds allowed with restrictions
+  - Non-occupant co-borrowers allowed (with restrictions)
+  - Loan must be fully amortizing, fixed or ARM
+  - Condo projects must be approved
+  - Up to 4 financed properties allowed 

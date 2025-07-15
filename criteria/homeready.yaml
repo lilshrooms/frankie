@@ -1,0 +1,32 @@
+# Fannie Mae HomeReady Loan Criteria
+# References:
+# - https://singlefamily.fanniemae.com/products/affordable-lending/homeready
+# - https://www.fanniemae.com/content/fact_sheet/homeready-overview.pdf
+
+loan_type: homeready
+min_credit_score: 620
+max_dti: 50  # With strong compensating factors
+max_ltv: 97
+max_loan_amount: 766550  # 2024 baseline, varies by county
+property_types:
+  - single_family
+  - condo
+  - PUD
+  - 2-4_unit
+occupancy:
+  - primary_residence
+required_documents:
+  - pay_stubs
+  - W2s
+  - tax_returns
+  - bank_statements
+  - credit_report
+  - purchase_agreement
+  - appraisal
+notes:
+  - Income limits apply (80% AMI)
+  - Homeownership education required for first-time buyers
+  - Gift/grant funds allowed for down payment/closing
+  - Reduced MI coverage
+  - Non-occupant co-borrowers allowed (with restrictions)
+  - Up to 2 financed properties 
