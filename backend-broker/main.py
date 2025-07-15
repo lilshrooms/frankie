@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
 import yaml
+from pydantic import BaseModel
+from fastapi import Body
+from email_ingest.gemini_analyzer import analyze_with_gemini
 
 CRITERIA_DIR = os.path.join(os.path.dirname(__file__), '../criteria')
 
@@ -17,6 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class SuggestRequest(BaseModel):
+    user_request: str
+    current_criteria: dict
+
 @app.get("/criteria", response_model=List[str])
 def list_criteria():
     files = [f for f in os.listdir(CRITERIA_DIR) if f.endswith('.yaml')]
@@ -30,3 +37,22 @@ def get_criteria(loan_type: str):
     with open(path, 'r') as f:
         data = yaml.safe_load(f)
     return data
+
+@app.post("/criteria/{loan_type}/suggest")
+def suggest_criteria(loan_type: str, req: SuggestRequest = Body(...)):
+    # Compose a prompt for Gemini
+    prompt = f"""
+You are an AI assistant for loan underwriting. Here are the current criteria for {loan_type} loans:
+{req.current_criteria}
+
+A loan officer has requested: '{req.user_request}'
+
+Suggest specific changes to the criteria as a YAML dictionary. Only include changed fields."
+"""
+    suggestion = analyze_with_gemini("", {"prompt": prompt})
+    # Try to parse the YAML from Gemini's response
+    try:
+        suggested_criteria = yaml.safe_load(suggestion)
+    except Exception:
+        suggested_criteria = {"error": "Could not parse suggestion as YAML", "raw": suggestion}
+    return {"suggested_criteria": suggested_criteria, "raw": suggestion}
