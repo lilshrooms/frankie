@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from email_ingest.attachment_parser import parse_attachments
 from email_ingest.gemini_analyzer import analyze_with_gemini
 import yaml
+from email_ingest.rag_pipeline import build_rag_index, retrieve_relevant_chunks, prepare_gemini_prompt
 
 # Load environment variables
 load_dotenv()
@@ -60,6 +61,18 @@ def fetch_unread_emails():
         emails.append({'id': msg['id'], 'subject': subject, 'from': from_email, 'body': body, 'attachments': attachments})
     return emails
 
+def parse_attachment(att):
+    # Use your existing logic to parse PDFs/images
+    from email_ingest.attachment_parser import parse_pdf, parse_image
+    filename = att['filename']
+    data = att['data']
+    if filename.lower().endswith('.pdf'):
+        return parse_pdf(data)
+    elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+        return parse_image(data)
+    else:
+        return ''
+
 if __name__ == '__main__':
     emails = fetch_unread_emails()
     # Load criteria (for now, use conventional.yaml)
@@ -70,6 +83,16 @@ if __name__ == '__main__':
         print(f"From: {email_data['from']}")
         print(f"Body: {email_data['body'][:100]}...")
         print(f"Attachments: {[a['filename'] for a in email_data['attachments']]}")
+        # Build RAG index from attachments
+        rag_chunks = build_rag_index(email_data['attachments'], parse_attachment)
+        if rag_chunks:
+            # Example query: "What is the borrower's total income?"
+            query = "What is the borrower's total income?"
+            relevant_chunks = retrieve_relevant_chunks(rag_chunks, query)
+            prompt = prepare_gemini_prompt(relevant_chunks, query)
+            print(f"Gemini Prompt:\n{prompt}\n---")
+        else:
+            print("No text chunks found in attachments. Skipping RAG retrieval.")
         # Parse attachments
         parsed_attachments = parse_attachments(email_data['attachments'])
         extracted_text = email_data['body'] + '\n' + '\n'.join([a['text'] or '' for a in parsed_attachments])
