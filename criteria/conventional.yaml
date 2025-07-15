@@ -1,0 +1,10 @@
+loan_type: conventional
+min_credit_score: 680
+max_dti: 43
+required_documents:
+  - pay_stubs
+  - bank_statements
+  - credit_report
+notes:
+  - No bankruptcies in last 7 years
+  - Stable employment history 
