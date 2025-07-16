@@ -147,19 +147,62 @@ EMAIL BODY:
     else:
         return {"error": f"Error: {response.status_code} {response.text}"}
 
+def send_email_response(to_email, original_subject, summary, next_steps, details):
+    from googleapiclient.discovery import build
+    from google.oauth2.credentials import Credentials
+    import base64, os, email
+    GMAIL_CLIENT_ID = os.getenv('GMAIL_CLIENT_ID')
+    GMAIL_CLIENT_SECRET = os.getenv('GMAIL_CLIENT_SECRET')
+    GMAIL_REFRESH_TOKEN = os.getenv('GMAIL_REFRESH_TOKEN')
+    GMAIL_USER_EMAIL = os.getenv('GMAIL_USER_EMAIL')
+    creds = Credentials(
+        None,
+        refresh_token=GMAIL_REFRESH_TOKEN,
+        client_id=GMAIL_CLIENT_ID,
+        client_secret=GMAIL_CLIENT_SECRET,
+        token_uri='https://oauth2.googleapis.com/token',
+        scopes=['https://mail.google.com/']
+    )
+    service = build('gmail', 'v1', credentials=creds)
+    subject = f"Re: {original_subject} — Loan Analysis & Next Steps"
+    # Format next steps as bullet points
+    next_steps_lines = [line.strip('-* ') for line in next_steps.split('\n') if line.strip()]
+    next_steps_bullets = '\n'.join([f"- {line}" for line in next_steps_lines])
+    # Compose a clean, readable email body
+    body = f"""
+Loan Analysis Summary
+====================
+{summary}
+
+Next Steps
+==========
+{next_steps_bullets}
+
+Details
+=======
+{details}
+"""
+    message = email.message.EmailMessage()
+    message.set_content(body)
+    message['To'] = to_email
+    message['From'] = GMAIL_USER_EMAIL
+    message['Subject'] = subject
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    send_message = {'raw': raw}
+    service.users().messages().send(userId='me', body=send_message).execute()
+
 if __name__ == '__main__':
     emails = fetch_recent_emails()
     # Load criteria (for now, use conventional.yaml)
     with open('criteria/conventional.yaml', 'r') as f:
         criteria = yaml.safe_load(f)
     for email_data in emails:
+        print(f"\n---\nChecking email: Subject: {email_data['subject']} | From: {email_data['from']}")
+        print(f"Body preview: {email_data['body'][:120].replace('\n', ' ')}")
         if not is_mortgage_email(email_data['subject'], email_data['body']):
-            print(f"Skipping non-mortgage email: {email_data['subject']}")
+            print(f"[SKIP] Not a mortgage-related email.\n")
             continue
-        print(f"Subject: {email_data['subject']}")
-        print(f"From: {email_data['from']}")
-        print(f"Body: {email_data['body'][:100]}...")
-        print(f"Attachments: {[a['filename'] for a in email_data['attachments']]}")
+        print(f"[PROCESS] Identified as mortgage-related. Proceeding with analysis and response.")
         # Step 1: Extract fields from email body using Gemini
         gemini_fields = extract_fields_with_gemini(email_data['body'])
         print(f"Gemini Body Extraction: {gemini_fields}")
@@ -180,4 +223,15 @@ if __name__ == '__main__':
         pre_extracted_str = '\n'.join([f'{k.replace('_', ' ').title()}: {v}' for k, v in gemini_fields.items()]) if gemini_fields else 'None found.'
         analysis = analyze_with_gemini(email_body, attachments_text, criteria, pre_extracted_str)
         print(f"Gemini Analysis: {analysis}")
+        # Compose summary and next steps (simple extraction for now)
+        summary = analysis.split('\n')[0][:200]  # First line or two as summary
+        next_steps = ''
+        for line in analysis.split('\n'):
+            if 'missing' in line.lower() or 'required' in line.lower() or 'outstanding' in line.lower():
+                next_steps += line + '\n'
+        if not next_steps:
+            next_steps = 'No outstanding items. Ready for next stage.'
+        # Send response email
+        print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']} — Loan Analysis & Next Steps")
+        send_email_response(email_data['from'], email_data['subject'], summary, next_steps, analysis)
         print('---') 
