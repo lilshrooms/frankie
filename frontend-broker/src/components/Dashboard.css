@@ -1,0 +1,56 @@
+.dashboard-container {
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.dashboard-container h2 {
+  margin-bottom: 24px;
+  font-size: 2rem;
+  color: #222;
+}
+
+.loan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+
+.loan-table th, .loan-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.loan-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+}
+
+.loan-table tr:hover {
+  background: #f9fafb;
+}
+
+.action-btn {
+  margin-right: 8px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 5px;
+  background: #1976d2;
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.action-btn:last-child {
+  margin-right: 0;
+}
+
+.action-btn:hover {
+  background: #125ea2;
+} 

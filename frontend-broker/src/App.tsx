@@ -1,10 +1,10 @@
 import React from 'react';
-import CriteriaEditor from './components/CriteriaEditor';
+import Dashboard from './components/Dashboard';
 
 function App() {
   return (
     <div className="App">
-      <CriteriaEditor />
+      <Dashboard />
     </div>
   );
 }

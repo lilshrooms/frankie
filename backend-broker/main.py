@@ -1,13 +1,19 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
 import yaml
 from pydantic import BaseModel
 from fastapi import Body
+from sqlalchemy.orm import Session
+from .database import SessionLocal, engine
+from . import models
 from email_ingest.gemini_analyzer import analyze_with_gemini
 
 CRITERIA_DIR = os.path.join(os.path.dirname(__file__), '../criteria')
+
+# Create tables (dev only; use Alembic for prod)
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -19,6 +25,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Pydantic schemas for API
+class LoanFileOut(BaseModel):
+    id: int
+    borrower: str
+    broker: str
+    status: str
+    last_activity: str
+    outstanding_items: str = ''
+    class Config:
+        orm_mode = True
+
+@app.get("/loan-files", response_model=List[LoanFileOut])
+def list_loan_files(db: Session = Depends(get_db)):
+    return db.query(models.LoanFile).all()
+
+@app.get("/loan-files/{loan_file_id}", response_model=LoanFileOut)
+def get_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
+    loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
+    if not loan_file:
+        raise HTTPException(status_code=404, detail="Loan file not found")
+    return loan_file
 
 class SuggestRequest(BaseModel):
     user_request: str
