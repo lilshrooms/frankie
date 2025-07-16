@@ -31,9 +31,9 @@ def get_gmail_service():
     service = build('gmail', 'v1', credentials=creds)
     return service
 
-def fetch_unread_emails():
+def fetch_recent_emails():
     service = get_gmail_service()
-    results = service.users().messages().list(userId='me', labelIds=['UNREAD'], maxResults=10).execute()
+    results = service.users().messages().list(userId='me', maxResults=20).execute()
     messages = results.get('messages', [])
     emails = []
     for msg in messages:
@@ -74,7 +74,7 @@ def parse_attachment(att):
         return ''
 
 if __name__ == '__main__':
-    emails = fetch_unread_emails()
+    emails = fetch_recent_emails()
     # Load criteria (for now, use conventional.yaml)
     with open('criteria/conventional.yaml', 'r') as f:
         criteria = yaml.safe_load(f)
@@ -95,8 +95,9 @@ if __name__ == '__main__':
             print("No text chunks found in attachments. Skipping RAG retrieval.")
         # Parse attachments
         parsed_attachments = parse_attachments(email_data['attachments'])
-        extracted_text = email_data['body'] + '\n' + '\n'.join([a['text'] or '' for a in parsed_attachments])
-        # Analyze with Gemini
-        analysis = analyze_with_gemini(extracted_text, criteria)
+        email_body = email_data['body']
+        attachments_text = '\n'.join([a['text'] or '' for a in parsed_attachments])
+        # Analyze with Gemini, passing both body and attachments text
+        analysis = analyze_with_gemini(email_body, attachments_text, criteria)
         print(f"Gemini Analysis: {analysis}")
         print('---') 
