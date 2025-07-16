@@ -73,12 +73,36 @@ def parse_attachment(att):
     else:
         return ''
 
+MORTGAGE_KEYWORDS = [
+    "mortgage", "loan request", "home loan", "purchase", "refinance",
+    "pre-approval", "prequal", "pre-qual", "prequalification", "pre-qualification",
+    "underwrite", "underwriting", "borrower", "property address", "escrow",
+    "closing disclosure", "CD", "HUD", "settlement statement", "GFE", "good faith estimate",
+    "lender", "title company", "down payment", "earnest money", "appraisal",
+    "loan estimate", "LE", "interest rate", "APR", "annual percentage rate",
+    "principal", "PITI", "DTI", "debt to income", "credit report", "credit score",
+    "income verification", "bank statement", "W-2", "pay stub", "asset statement",
+    "purchase contract", "sales contract", "offer letter", "real estate agent",
+    "listing", "MLS", "property tax", "insurance binder", "hazard insurance",
+    "FHA", "VA", "USDA", "conventional", "jumbo", "non-QM", "conforming",
+    "high-balance", "cash to close", "funding", "commitment letter", "clear to close",
+    "CTC", "closing date", "funded", "draw", "HELOC", "home equity", "second mortgage"
+]
+
+def is_mortgage_email(subject, body):
+    text = (subject or "") + " " + (body or "")
+    text = text.lower()
+    return any(keyword in text for keyword in MORTGAGE_KEYWORDS)
+
 if __name__ == '__main__':
     emails = fetch_recent_emails()
     # Load criteria (for now, use conventional.yaml)
     with open('criteria/conventional.yaml', 'r') as f:
         criteria = yaml.safe_load(f)
     for email_data in emails:
+        if not is_mortgage_email(email_data['subject'], email_data['body']):
+            print(f"Skipping non-mortgage email: {email_data['subject']}")
+            continue
         print(f"Subject: {email_data['subject']}")
         print(f"From: {email_data['from']}")
         print(f"Body: {email_data['body'][:100]}...")
