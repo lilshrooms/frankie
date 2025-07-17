@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
 from . import models
 from email_ingest.gemini_analyzer import analyze_with_gemini
+from fastapi import UploadFile, File, Form
+import shutil
+from datetime import datetime
 
 CRITERIA_DIR = os.path.join(os.path.dirname(__file__), '../criteria')
 
@@ -39,10 +42,16 @@ class LoanFileOut(BaseModel):
     borrower: str
     broker: str
     status: str
-    last_activity: str
+    last_activity: datetime  # <-- change from str to datetime
     outstanding_items: str = ''
     class Config:
-        orm_mode = True
+        orm_mode = True  # or 'from_attributes = True' for Pydantic v2
+
+class LoanFileCreate(BaseModel):
+    borrower: str
+    broker: str
+    loan_type: str
+    amount: str
 
 @app.get("/loan-files", response_model=List[LoanFileOut])
 def list_loan_files(db: Session = Depends(get_db)):
@@ -53,6 +62,55 @@ def get_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
     loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
     if not loan_file:
         raise HTTPException(status_code=404, detail="Loan file not found")
+    return loan_file
+
+@app.post("/loan-files", response_model=LoanFileOut)
+def create_loan_file(
+    borrower: str = Form(...),
+    broker: str = Form(...),
+    loan_type: str = Form(...),
+    amount: str = Form(...),
+    document: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    # Create the LoanFile
+    loan_file = models.LoanFile(
+        borrower=borrower,
+        broker=broker,
+        status="Incomplete",
+        last_activity=datetime.utcnow(),
+        outstanding_items="",
+    )
+    db.add(loan_file)
+    db.commit()
+    db.refresh(loan_file)
+
+    # Handle document upload
+    if document:
+        upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, f"loanfile_{loan_file.id}_{document.filename}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(document.file, buffer)
+        attachment = models.Attachment(
+            loan_file_id=loan_file.id,
+            filename=document.filename,
+            file_url=file_path,
+            uploaded_by=broker,
+        )
+        db.add(attachment)
+        db.commit()
+
+    return loan_file
+
+@app.delete("/loan-files/{loan_file_id}", response_model=LoanFileOut, status_code=status.HTTP_200_OK)
+def soft_delete_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
+    loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
+    if not loan_file:
+        raise HTTPException(status_code=404, detail="Loan file not found")
+    loan_file.status = "deleted"
+    db.commit()
+    db.refresh(loan_file)
     return loan_file
 
 class SuggestRequest(BaseModel):
