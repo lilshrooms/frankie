@@ -149,3 +149,69 @@ Suggest specific changes to the criteria as a YAML dictionary. Only include chan
     except Exception:
         suggested_criteria = {"error": "Could not parse suggestion as YAML", "raw": suggestion}
     return {"suggested_criteria": suggested_criteria, "raw": suggestion}
+
+from fastapi import APIRouter, HTTPException
+
+@app.post("/loan-files/{loan_file_id}/analyze")
+def analyze_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
+    # 1. Fetch loan file and attachments
+    loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
+    if not loan_file:
+        raise HTTPException(status_code=404, detail="Loan file not found")
+    attachments = db.query(models.Attachment).filter(models.Attachment.loan_file_id == loan_file_id).all()
+    if not attachments:
+        raise HTTPException(status_code=404, detail="No attachments found for this loan file")
+
+    # 2. For each attachment: parse PDF or image
+    import pdfplumber
+    from PIL import Image
+    import pytesseract
+    import io
+
+    extracted_texts = []
+    for att in attachments:
+        file_path = att.file_url if isinstance(att.file_url, str) else str(att.file_url)
+        if file_path.lower().endswith('.pdf'):
+            try:
+                with pdfplumber.open(file_path) as pdf:
+                    text = "".join([page.extract_text() or "" for page in pdf.pages])
+                extracted_texts.append(text)
+            except Exception as e:
+                extracted_texts.append(f"[PDF parse error: {e}]")
+        elif file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+            try:
+                with Image.open(file_path) as img:
+                    text = pytesseract.image_to_string(img)
+                extracted_texts.append(text)
+            except Exception as e:
+                extracted_texts.append(f"[Image OCR error: {e}]")
+        else:
+            extracted_texts.append(f"[Unsupported file type: {file_path}]")
+
+    # 3. Combine all extracted text
+    attachments_text = "\n\n".join(extracted_texts)
+
+    # 4. Run Gemini analysis
+    from email_ingest.gemini_analyzer import analyze_with_gemini
+    # For now, use empty strings for email_body, criteria, pre_extracted_str
+    analysis_result = analyze_with_gemini("", attachments_text, {}, "")
+
+    # 5. Store result in AIAnalysis table
+    analysis = models.AIAnalysis(
+        loan_file_id=loan_file.id,
+        analysis_text=analysis_result,
+        summary=analysis_result[:200],  # First 200 chars as summary
+        next_steps="",  # Could extract next steps from analysis_result
+    )
+    db.add(analysis)
+    db.commit()
+    db.refresh(analysis)
+
+    # 6. Return result
+    return {
+        "loan_file_id": loan_file.id,
+        "analysis_id": analysis.id,
+        "analysis_text": analysis.analysis_text,
+        "summary": analysis.summary,
+        "next_steps": analysis.next_steps,
+    }
