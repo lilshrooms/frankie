@@ -58,4 +58,5 @@ class Attachment(Base):
     file_url = Column(String)
     uploaded_by = Column(String)
     uploaded_at = Column(DateTime, default=func.now())
+    doc_type = Column(String, default='Unknown')  # New field for document type
     loan_file = relationship('LoanFile', back_populates='attachments') 

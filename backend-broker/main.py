@@ -12,6 +12,7 @@ from email_ingest.gemini_analyzer import analyze_with_gemini
 from fastapi import UploadFile, File, Form
 import shutil
 from datetime import datetime
+import re
 
 CRITERIA_DIR = os.path.join(os.path.dirname(__file__), '../criteria')
 
@@ -150,7 +151,51 @@ Suggest specific changes to the criteria as a YAML dictionary. Only include chan
         suggested_criteria = {"error": "Could not parse suggestion as YAML", "raw": suggestion}
     return {"suggested_criteria": suggested_criteria, "raw": suggestion}
 
-from fastapi import APIRouter, HTTPException
+import pdfplumber
+from PIL import Image
+import pytesseract
+import io
+
+def extract_years(text):
+    # Find all 4-digit years in a reasonable range
+    years = re.findall(r'(20[0-2][0-9])', text)
+    return [int(y) for y in years if 2000 <= int(y) <= datetime.now().year]
+
+def is_recent_year(year, years_back=2):
+    current_year = datetime.now().year
+    return current_year - year < years_back
+
+def extract_statement_period(text):
+    # Look for MM/YYYY or Month YYYY patterns
+    matches = re.findall(r'(0[1-9]|1[0-2])[\-/](20[0-2][0-9])', text)
+    return [f"{m[0]}/{m[1]}" for m in matches]
+
+def is_recent_month(month_year, months_back=3):
+    try:
+        dt = datetime.strptime(month_year, "%m/%Y")
+        now = datetime.now()
+        diff = (now.year - dt.year) * 12 + (now.month - dt.month)
+        return diff < months_back
+    except Exception:
+        return False
+
+def classify_doc_type(filename: str, text: str = "") -> str:
+    name = filename.lower()
+    text = (text or "").lower()
+    if "w2" in name: return "W2"
+    if "1099" in name: return "1099"
+    if "paystub" in name or "pay-stub" in name: return "Paystub"
+    if "bank" in name or "statement" in name: return "Bank Statement"
+    if "appraisal" in name: return "Appraisal"
+    if "tax" in name: return "Tax Document"
+    if "id" in name or "driver" in name or "passport" in name: return "ID"
+    if "wage and tax statement" in text and "form w-2" in text: return "W2"
+    if "statement period" in text and "account number" in text: return "Bank Statement"
+    if "appraisal report" in text: return "Appraisal"
+    if "irs form 1099" in text: return "1099"
+    if "pay period" in text and "net pay" in text: return "Paystub"
+    if "social security number" in text and "date of birth" in text: return "ID"
+    return "Unknown"
 
 @app.post("/loan-files/{loan_file_id}/analyze")
 def analyze_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
@@ -163,11 +208,6 @@ def analyze_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No attachments found for this loan file")
 
     # 2. For each attachment: parse PDF or image
-    import pdfplumber
-    from PIL import Image
-    import pytesseract
-    import io
-
     extracted_texts = []
     for att in attachments:
         file_path = att.file_url if isinstance(att.file_url, str) else str(att.file_url)
@@ -208,10 +248,37 @@ def analyze_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
     db.refresh(analysis)
 
     # 6. Return result
+    checklist = []
+    for att, text in zip(attachments, extracted_texts):
+        filename = att.filename if isinstance(att.filename, str) else str(att.filename)
+        doc_type = classify_doc_type(filename, text)
+        # Recency check for W2
+        if doc_type == "W2":
+            years = extract_years(text)
+            if years and any(is_recent_year(y, 2) for y in years):
+                recency = f"Recent W2 ({max(years)})"
+            else:
+                recency = f"No recent W2 ({years if years else 'none found'})"
+        # Recency check for Bank Statement
+        elif doc_type == "Bank Statement":
+            periods = extract_statement_period(text)
+            if periods and any(is_recent_month(p, 3) for p in periods):
+                recency = f"Recent Bank Statement ({max(periods)})"
+            else:
+                recency = f"No recent Bank Statement ({periods if periods else 'none found'})"
+        else:
+            recency = "N/A"
+        checklist.append({
+            "filename": filename,
+            "doc_type": doc_type,
+            "recency": recency
+        })
+
     return {
         "loan_file_id": loan_file.id,
         "analysis_id": analysis.id,
         "analysis_text": analysis.analysis_text,
         "summary": analysis.summary,
         "next_steps": analysis.next_steps,
+        "checklist": checklist
     }
