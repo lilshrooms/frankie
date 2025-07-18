@@ -1,22 +1,33 @@
-# backend-broker
+# Frankie Backend (backend-broker)
 
-This is the backend API for the broker admin UI. It is built with FastAPI and provides endpoints to:
-- List available loan criteria (YAML files in ../criteria/)
-- Read and update criteria for each loan type
-- (Future) Manage user permissions and broker instances
+## Overview
+FastAPI backend for email ingestion, document parsing, RAG, and admin API.
 
 ## Setup
+```bash
+cd backend-broker
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload
+```
 
-1. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-2. Install dependencies:
-   ```bash
-   pip install fastapi uvicorn pyyaml
-   ```
-3. Run the server:
-   ```bash
-   uvicorn main:app --reload
-   ``` 
+## Environment Variables
+See `.env.example` for Gmail, Gemini, and DB credentials.
+
+## API Docs
+- Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Redoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+## Features
+- Email fetching, PDF/image parsing, RAG, YAML criteria
+- Soft delete, audit logging
+
+## Testing
+```bash
+pytest
+```
+
+## Deployment
+Deploy to cloud host (e.g., Render, AWS, GCP). 
