@@ -1,0 +1,60 @@
+.tooltip-wrapper {
+  position: relative;
+  display: inline-block;
+  outline: none;
+}
+
+.tooltip-bubble {
+  position: absolute;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  background: rgba(30, 30, 30, 0.95);
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  white-space: nowrap;
+  transition: opacity 0.18s cubic-bezier(.4,1.4,.6,1), transform 0.18s cubic-bezier(.4,1.4,.6,1);
+  transform: translateY(6px) scale(0.98);
+  pointer-events: none;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -120%) scale(0.98);
+}
+
+.tooltip-bubble.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -140%) scale(1);
+}
+
+.tooltip-bottom {
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 10%) scale(0.98);
+}
+.tooltip-bottom.visible {
+  transform: translate(-50%, 20%) scale(1);
+}
+
+.tooltip-left {
+  left: auto;
+  right: 100%;
+  top: 50%;
+  transform: translate(-10%, -50%) scale(0.98);
+}
+.tooltip-left.visible {
+  transform: translate(-20%, -50%) scale(1);
+}
+
+.tooltip-right {
+  left: 100%;
+  top: 50%;
+  transform: translate(10%, -50%) scale(0.98);
+}
+.tooltip-right.visible {
+  transform: translate(20%, -50%) scale(1);
+} 

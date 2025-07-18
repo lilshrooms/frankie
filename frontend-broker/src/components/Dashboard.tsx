@@ -3,10 +3,15 @@ import './Dashboard.css';
 import { fetchLoanFiles, LoanFile, createLoanFile, softDeleteLoanFile } from '../api/loanFiles';
 import { FaEye, FaUpload, FaCommentDots, FaTrash, FaPlus } from 'react-icons/fa';
 import ConfirmModal from './ConfirmModal';
+import Tooltip from './Tooltip';
+import { useToast } from './ToastContainer';
+import { apiClient } from '../utils/apiClient';
+import { AppError, formatError } from '../utils/errorHandler';
 
 const uniqueStatuses = (files: LoanFile[]) => Array.from(new Set(files.map(f => f.status)));
 
 const Dashboard: React.FC = () => {
+  const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [loanFiles, setLoanFiles] = useState<LoanFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,28 +36,52 @@ const Dashboard: React.FC = () => {
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    fetchLoanFiles()
-      .then(data => {
-        setLoanFiles(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
+    loadLoanFiles();
   }, []);
+
+  const loadLoanFiles = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const data = await apiClient.get<LoanFile[]>('/loan-files', {
+        maxRetries: 3,
+        onRetry: (error, retryCount) => {
+          showWarning('Connection issue', `Retrying... (${retryCount}/3)`);
+        }
+      });
+      setLoanFiles(data);
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError('Failed to load loan files');
+      const { title, message } = formatError(appError);
+      setError(title);
+      showError(title, message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id: number) => {
     setDeleteLoading(true);
     setError(null);
+    
     try {
-      await softDeleteLoanFile(id);
-      const data = await fetchLoanFiles();
-      setLoanFiles(data);
+      await apiClient.delete(`/loan-files/${id}`, {
+        maxRetries: 2,
+        onRetry: (error, retryCount) => {
+          showWarning('Delete failed', `Retrying... (${retryCount}/2)`);
+        }
+      });
+      
+      showSuccess('Loan file deleted', 'The loan file has been successfully deleted.');
+      await loadLoanFiles();
       setConfirmOpen(false);
       setDeleteId(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete loan file');
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError('Failed to delete loan file');
+      const { title, message } = formatError(appError);
+      setError(title);
+      showError(title, message);
     } finally {
       setDeleteLoading(false);
     }
@@ -95,19 +124,71 @@ const Dashboard: React.FC = () => {
     return 0;
   });
 
+  const handleCreateLoan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setFormLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('borrower', form.borrower);
+      formData.append('broker', form.broker);
+      formData.append('loanType', form.loanType);
+      formData.append('amount', form.amount);
+      
+      if (form.document) {
+        await apiClient.uploadFile('/loan-files', form.document, (progress) => {
+          // Could show upload progress here
+          console.log(`Upload progress: ${progress}%`);
+        }, {
+          maxRetries: 2,
+          onRetry: (error, retryCount) => {
+            showWarning('Upload failed', `Retrying upload... (${retryCount}/2)`);
+          }
+        });
+      } else {
+        await apiClient.post('/loan-files', {
+          borrower: form.borrower,
+          broker: form.broker,
+          loanType: form.loanType,
+          amount: form.amount,
+        }, {
+          maxRetries: 2,
+          onRetry: (error, retryCount) => {
+            showWarning('Creation failed', `Retrying... (${retryCount}/2)`);
+          }
+        });
+      }
+      
+      showSuccess('Loan file created', 'The new loan file has been successfully created.');
+      setShowNewLoan(false);
+      setForm({borrower:'',broker:'',loanType:'',amount:'',document:null});
+      await loadLoanFiles();
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError('Failed to create loan file');
+      const { title, message } = formatError(appError);
+      setFormError(title);
+      showError(title, message);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h2>Loan Files</h2>
         <div style={{display:'flex',alignItems:'center',gap:16}}>
-          <button
-            className="action-btn"
-            style={{background: showAll ? '#888' : '#6C2EB7', minWidth: 90, fontWeight: 500, fontSize: '1rem'}}
-            onClick={() => setShowAll(v => !v)}
-            aria-label={showAll ? 'Show High Priority' : 'Show All'}
-          >
-            {showAll ? 'Show High Priority' : 'Show All'}
-          </button>
+          <Tooltip content={showAll ? 'Show only urgent/high-priority loan files' : 'Show all loan files (including non-urgent)'}>
+            <button
+              className="action-btn"
+              style={{background: showAll ? '#888' : '#6C2EB7', minWidth: 90, fontWeight: 500, fontSize: '1rem'}}
+              onClick={() => setShowAll(v => !v)}
+              aria-label={showAll ? 'Show High Priority' : 'Show All'}
+            >
+              {showAll ? 'Show High Priority' : 'Show All'}
+            </button>
+          </Tooltip>
           <button className="action-btn" style={{marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8}} onClick={() => setShowNewLoan(true)} aria-label="New Loan">
             <FaPlus /> <span>New Loan</span>
           </button>
@@ -141,14 +222,16 @@ const Dashboard: React.FC = () => {
           <option value="broker">Sort by Broker</option>
           <option value="status">Sort by Status</option>
         </select>
-        <button
-          className="action-btn"
-          style={{background: sortDir === 'desc' ? '#6C2EB7' : '#B76C2E', minWidth: 40, padding: '7px 10px'}}
-          onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-          title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
-        >
-          {sortDir === 'desc' ? '↓' : '↑'}
-        </button>
+        <Tooltip content={sortDir === 'desc' ? 'Sort by most recent activity' : 'Sort by oldest activity'}>
+          <button
+            className="action-btn"
+            style={{background: sortDir === 'desc' ? '#6C2EB7' : '#B76C2E', minWidth: 40, padding: '7px 10px'}}
+            onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+            aria-label={sortDir === 'desc' ? 'Sort Descending' : 'Sort Ascending'}
+          >
+            {sortDir === 'desc' ? '↓' : '↑'}
+          </button>
+        </Tooltip>
       </div>
       {loading && <div>Loading...</div>}
       {error && <div className="error">{error}</div>}
@@ -172,17 +255,37 @@ const Dashboard: React.FC = () => {
                 }>
                   <td>{file.borrower}</td>
                   <td>{file.broker}</td>
-                  <td>{file.status} <span className={statusBadgeClass(file.status)}>{file.status}</span></td>
+                  <td>
+                    <Tooltip content={(() => {
+                      const s = file.status.toLowerCase();
+                      if (s === 'docs needed') return 'Missing required documents. Needs immediate attention.';
+                      if (s === 'pending docs') return 'Waiting for borrower to upload documents.';
+                      if (s === 'incomplete') return 'Loan file is incomplete and needs attention.';
+                      if (s === 'complete') return 'All documents received. Ready for review.';
+                      if (s === 'under review') return 'Loan file is under review.';
+                      return `Status: ${file.status}`;
+                    })()}>
+                      <span className={statusBadgeClass(file.status)}>{file.status}</span>
+                    </Tooltip>
+                  </td>
                   <td>{new Date(file.last_activity).toLocaleString()}</td>
                   <td>{file.outstanding_items ? file.outstanding_items : 'None'}</td>
                   <td className="actions-cell">
-                    <button className="action-btn" aria-label="View details" onClick={() => setSelected(file)}><FaEye /> <span style={{marginLeft: 4}}>View</span></button>
-                    <button className="action-btn" aria-label="Upload document"><FaUpload /> <span style={{marginLeft: 4}}>Upload</span></button>
-                    <button className="action-btn" aria-label="Send message"><FaCommentDots /> <span style={{marginLeft: 4}}>Message</span></button>
-                    <button className="action-btn" style={{background:'#b71c1c', display: 'flex', alignItems: 'center', gap: 4}} aria-label="Delete (soft)" onClick={() => {
-                      setDeleteId(file.id);
-                      setConfirmOpen(true);
-                    }}><FaTrash /> <span>Delete</span></button>
+                    <Tooltip content="View loan file details">
+                      <button className="action-btn" aria-label="View details" onClick={() => setSelected(file)}><FaEye /> <span style={{marginLeft: 4}}>View</span></button>
+                    </Tooltip>
+                    <Tooltip content="Upload a new document to this loan file">
+                      <button className="action-btn" aria-label="Upload document"><FaUpload /> <span style={{marginLeft: 4}}>Upload</span></button>
+                    </Tooltip>
+                    <Tooltip content="Send a message to the broker or borrower">
+                      <button className="action-btn" aria-label="Send message"><FaCommentDots /> <span style={{marginLeft: 4}}>Message</span></button>
+                    </Tooltip>
+                    <Tooltip content="Delete this loan file (soft delete, can be restored later)">
+                      <button className="action-btn" style={{background:'#b71c1c', display: 'flex', alignItems: 'center', gap: 4}} aria-label="Delete (soft)" onClick={() => {
+                        setDeleteId(file.id);
+                        setConfirmOpen(true);
+                      }}><FaTrash /> <span>Delete</span></button>
+                    </Tooltip>
                   </td>
                 </tr>
               ))}
@@ -195,31 +298,7 @@ const Dashboard: React.FC = () => {
           <div className="modal" style={{animation:'modalPop 0.22s cubic-bezier(.4,1.4,.6,1)'}} onClick={e => e.stopPropagation()}>
             <h3>New Loan File</h3>
             <form
-              onSubmit={async e => {
-                e.preventDefault();
-                setFormError(null);
-                setFormLoading(true);
-                try {
-                  await createLoanFile({
-                    borrower: form.borrower,
-                    broker: form.broker,
-                    loanType: form.loanType,
-                    amount: form.amount,
-                    document: form.document,
-                  });
-                  setShowNewLoan(false);
-                  setForm({borrower:'',broker:'',loanType:'',amount:'',document:null});
-                  // Refresh loan files
-                  setLoading(true);
-                  const data = await fetchLoanFiles();
-                  setLoanFiles(data);
-                  setLoading(false);
-                } catch (err: any) {
-                  setFormError(err.message || 'Failed to create loan file');
-                } finally {
-                  setFormLoading(false);
-                }
-              }}
+              onSubmit={handleCreateLoan}
             >
               <div style={{marginBottom: 12}}>
                 <label>Borrower Name<br/>
