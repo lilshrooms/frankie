@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './Dashboard.css';
-import { fetchLoanFiles, LoanFile, createLoanFile, softDeleteLoanFile } from '../api/loanFiles';
+import { fetchLoanFiles, LoanFile, createLoanFile, softDeleteLoanFile, analyzeLoanFile } from '../api/loanFiles';
 import { FaEye, FaUpload, FaCommentDots, FaTrash, FaPlus } from 'react-icons/fa';
 import ConfirmModal from './ConfirmModal';
 import Tooltip from './Tooltip';
@@ -34,6 +34,9 @@ const Dashboard: React.FC = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
     loadLoanFiles();
@@ -84,6 +87,19 @@ const Dashboard: React.FC = () => {
       showError(title, message);
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleAnalyze = async (loanFileId: number) => {
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    try {
+      const result = await analyzeLoanFile(loanFileId);
+      setAnalysisResult(result);
+    } catch (err: any) {
+      setAnalysisError(err.message || 'Failed to analyze loan file');
+    } finally {
+      setAnalysisLoading(false);
     }
   };
 
@@ -280,6 +296,16 @@ const Dashboard: React.FC = () => {
                     <Tooltip content="Send a message to the broker or borrower">
                       <button className="action-btn" aria-label="Send message"><FaCommentDots /> <span style={{marginLeft: 4}}>Message</span></button>
                     </Tooltip>
+                    <Tooltip content="Run AI analysis on all attachments">
+                      <button
+                        className="action-btn"
+                        onClick={() => handleAnalyze(file.id)}
+                        disabled={analysisLoading}
+                        style={{ background: '#1976d2' }}
+                      >
+                        {analysisLoading ? 'Analyzing...' : 'Analyze'}
+                      </button>
+                    </Tooltip>
                     <Tooltip content="Delete this loan file (soft delete, can be restored later)">
                       <button className="action-btn" style={{background:'#b71c1c', display: 'flex', alignItems: 'center', gap: 4}} aria-label="Delete (soft)" onClick={() => {
                         setDeleteId(file.id);
@@ -352,6 +378,48 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {analysisResult && (
+        <div className="modal-overlay" onClick={() => setAnalysisResult(null)}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+            <h3>AI Analysis</h3>
+            <div style={{ marginBottom: 16 }}>
+              <b>Summary:</b>
+              <div style={{ background: '#f7f7fa', padding: 10, borderRadius: 6, marginTop: 4 }}>{analysisResult.summary}</div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <b>Next Steps:</b>
+              <div style={{ background: '#f7f7fa', padding: 10, borderRadius: 6, marginTop: 4 }}>{analysisResult.next_steps || 'None'}</div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <b>Checklist:</b>
+              <table style={{ width: '100%', background: '#fff', borderRadius: 6, boxShadow: '0 1px 4px #eee', marginTop: 8 }}>
+                <thead>
+                  <tr style={{ background: '#f3f6fa' }}>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Recency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analysisResult.checklist && analysisResult.checklist.map((item: any, idx: number) => (
+                    <tr key={idx} style={{ background: item.recency.startsWith('No recent') ? '#fffbe6' : undefined }}>
+                      <td>{item.filename}</td>
+                      <td>{item.doc_type}</td>
+                      <td style={{ color: item.recency.startsWith('No recent') ? '#b76c2e' : '#1976d2', fontWeight: 500 }}>{item.recency}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <b>Full Analysis:</b>
+              <pre style={{ background: '#f7f7fa', padding: 10, borderRadius: 6, maxHeight: 200, overflow: 'auto' }}>{analysisResult.analysis_text}</pre>
+            </div>
+            <button className="action-btn" onClick={() => setAnalysisResult(null)} style={{ marginTop: 8 }}>Close</button>
+          </div>
+        </div>
+      )}
+      {analysisError && <div className="error">{analysisError}</div>}
       <ConfirmModal
         open={confirmOpen}
         title="Delete Loan File"
