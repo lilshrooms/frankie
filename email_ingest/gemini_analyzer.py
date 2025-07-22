@@ -55,21 +55,20 @@ def analyze_with_gemini(email_body: str, attachments_data: List[Dict], criteria:
                 attachments_text += f"\n{tables_text}\n"
                 all_tables.extend(attachment['tables'])
     
-    # Enhanced prompt with structured data and tables
+    # Simplified prompt focused on preliminary qualification
     prompt = f'''
-You are an AI loan underwriter with expertise in mortgage underwriting. Your task is to analyze loan applications and extract key information with high accuracy.
+You are a mortgage loan processor helping with preliminary qualification. Your task is to extract key information and provide a high-level assessment.
 
-**UNDERWRITING CRITERIA:**
-{criteria}
+**BASIC QUALIFICATION CRITERIA:**
+- Minimum credit score: 620 (FHA), 680 (Conventional)
+- Maximum DTI: 43% (FHA), 45% (Conventional)
+- Minimum down payment: 3.5% (FHA), 3% (Conventional)
 
 **PRE-EXTRACTED EMAIL FIELDS:**
 {pre_extracted_str}
 
 **PRE-EXTRACTED STRUCTURED DATA FROM DOCUMENTS:**
 {format_structured_data(all_structured_data)}
-
-**EXTRACTED TABLES:**
-{format_tables(all_tables)}
 
 **EMAIL BODY:**
 {email_body}
@@ -78,48 +77,32 @@ You are an AI loan underwriter with expertise in mortgage underwriting. Your tas
 {attachments_text}
 
 **TASK:**
-1. **Extract and validate** the following fields if present:
+1. **Extract key information:**
    - Borrower Name(s)
    - Credit Score(s)
-   - Loan Amount
-   - Purchase Price
-   - Property Type
-   - Occupancy Type
-   - Monthly Debts (including credit card minimum payments)
-   - Monthly Income (gross and net)
-   - Employer(s) and job title(s)
+   - Loan Amount & Purchase Price
+   - Monthly Income (gross)
+   - Monthly Debts (including credit cards)
    - Down Payment Amount
-   - Property Address
-   - Credit card balances and minimum payments (for DTI calculation)
-   - Any other relevant financial information
+   - Property Type & Occupancy
 
-2. **For credit card statements specifically:**
-   - Extract all credit card balances
-   - Calculate total monthly credit card payments (minimum payments)
-   - Note credit utilization ratios
-   - Flag any late payments or high utilization
-   - Include in monthly debt calculations for DTI
+2. **Preliminary Assessment:**
+   - Does the borrower meet basic credit score requirements?
+   - Can we calculate a preliminary DTI ratio?
+   - Are there any obvious red flags?
+   - What documents are still needed?
 
-3. **For each field:**
-   - Provide the exact value found
-   - Indicate the source (Email Body, Document Type, or Table)
-   - Note any discrepancies between sources
-   - Flag any missing critical information
-
-4. **Provide underwriting analysis:**
-   - Compare extracted data against the underwriting criteria
-   - Calculate preliminary DTI ratio using income and debt data
-   - Identify any red flags or missing requirements
-   - Flag high credit utilization or late payments
-   - Suggest next steps for the loan officer
+3. **Next Steps:**
+   - List 2-3 specific items needed to proceed
+   - Suggest loan program if possible (FHA/Conventional)
 
 **IMPORTANT:**
-- Use the structured data and tables as your primary source when available
-- Cross-reference information across multiple documents
-- Be precise with numbers and dates
-- Flag any inconsistencies or missing critical data
+- Focus on high-level qualification, not detailed underwriting
+- Be concise and clear
+- Flag missing critical information
+- Provide actionable next steps
 
-Return your analysis as a structured Markdown response with clear sections for extracted data, validation, and recommendations.
+Return a brief, structured response with: QUALIFICATION STATUS, KEY FINDINGS, MISSING ITEMS, NEXT STEPS.
 '''
     
     data = {

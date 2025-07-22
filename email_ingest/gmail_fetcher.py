@@ -68,32 +68,63 @@ def parse_attachment(att):
     filename = att['filename']
     data = att['data']
     if filename.lower().endswith('.pdf'):
-        return parse_pdf(data)
+        parsed_data = parse_pdf(data)
+        return parsed_data.get('text', '')  # Extract text from the dictionary
     elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-        return parse_image(data)
+        parsed_data = parse_image(data)
+        return parsed_data.get('text', '')  # Extract text from the dictionary
     else:
         return ''
 
 MORTGAGE_KEYWORDS = [
-    "mortgage", "loan request", "home loan", "purchase", "refinance",
-    "pre-approval", "prequal", "pre-qual", "prequalification", "pre-qualification",
-    "underwrite", "underwriting", "borrower", "property address", "escrow",
-    "closing disclosure", "CD", "HUD", "settlement statement", "GFE", "good faith estimate",
-    "lender", "title company", "down payment", "earnest money", "appraisal",
-    "loan estimate", "LE", "interest rate", "APR", "annual percentage rate",
-    "principal", "PITI", "DTI", "debt to income", "credit report", "credit score",
+    "mortgage loan", "loan request", "home loan", "mortgage application", "loan application",
+    "pre-approval", "prequalification", "underwriting", "borrower", "property address",
+    "closing disclosure", "settlement statement", "good faith estimate", "loan estimate",
+    "down payment", "earnest money", "appraisal", "credit report", "credit score",
     "income verification", "bank statement", "W-2", "pay stub", "asset statement",
-    "purchase contract", "sales contract", "offer letter", "real estate agent",
-    "listing", "MLS", "property tax", "insurance binder", "hazard insurance",
+    "purchase contract", "sales contract", "real estate agent", "MLS", "property tax",
     "FHA", "VA", "USDA", "conventional", "jumbo", "non-QM", "conforming",
-    "high-balance", "cash to close", "funding", "commitment letter", "clear to close",
-    "CTC", "closing date", "funded", "draw", "HELOC", "home equity", "second mortgage"
+    "commitment letter", "clear to close", "HELOC", "home equity"
 ]
 
 def is_mortgage_email(subject, body):
-    text = (subject or "") + " " + (body or "")
-    text = text.lower()
-    return any(keyword in text for keyword in MORTGAGE_KEYWORDS)
+    subject_lower = (subject or "").lower()
+    body_lower = (body or "").lower()
+    text = subject_lower + " " + body_lower
+    
+    # Check for obvious non-mortgage indicators first
+    non_mortgage_indicators = [
+        'co-founder', 'startup', 'yc', 'ycombinator', 'investor', 'funding', 'venture',
+        'google alert', 'property tax', 'news', 'article', 'blog', 'newsletter',
+        'webinar', 'event', 'conference', 'podcast', 'interview', 'marketing',
+        'reddit', 'social media', 'notification', 'alert', 'update'
+    ]
+    
+    # If any non-mortgage indicators are present, it's likely not a mortgage email
+    if any(indicator in text for indicator in non_mortgage_indicators):
+        return False
+    
+    # Strong mortgage indicators that should trigger processing
+    strong_mortgage_indicators = [
+        'credit score', 'buy a home', 'purchase home', 'mortgage loan', 'loan request',
+        'home loan', 'mortgage application', 'loan application', 'pre-approval',
+        'prequalification', 'underwriting', 'borrower', 'property address',
+        'closing disclosure', 'settlement statement', 'good faith estimate', 'loan estimate',
+        'down payment', 'earnest money', 'appraisal', 'credit report',
+        'income verification', 'bank statement', 'w-2', 'pay stub', 'asset statement',
+        'purchase contract', 'sales contract', 'real estate agent', 'mls',
+        'fha', 'va', 'usda', 'conventional', 'jumbo', 'non-qm', 'conforming',
+        'commitment letter', 'clear to close', 'heloc', 'home equity'
+    ]
+    
+    # Check if subject contains strong mortgage indicators (should be processed)
+    subject_mortgage_count = sum(1 for keyword in strong_mortgage_indicators if keyword in subject_lower)
+    if subject_mortgage_count >= 1:
+        return True
+    
+    # For body content, require at least 2 mortgage indicators
+    body_mortgage_count = sum(1 for keyword in strong_mortgage_indicators if keyword in body_lower)
+    return body_mortgage_count >= 2
 
 def extract_fields_from_body(body):
     fields = {}
@@ -147,14 +178,17 @@ EMAIL BODY:
     else:
         return {"error": f"Error: {response.status_code} {response.text}"}
 
-def send_email_response(to_email, original_subject, summary, next_steps, details):
+def send_email_response(to_email, original_subject, analysis):
     from googleapiclient.discovery import build
     from google.oauth2.credentials import Credentials
     import base64, os, email
+    import re
+    
     GMAIL_CLIENT_ID = os.getenv('GMAIL_CLIENT_ID')
     GMAIL_CLIENT_SECRET = os.getenv('GMAIL_CLIENT_SECRET')
     GMAIL_REFRESH_TOKEN = os.getenv('GMAIL_REFRESH_TOKEN')
     GMAIL_USER_EMAIL = os.getenv('GMAIL_USER_EMAIL')
+    
     creds = Credentials(
         None,
         refresh_token=GMAIL_REFRESH_TOKEN,
@@ -164,24 +198,71 @@ def send_email_response(to_email, original_subject, summary, next_steps, details
         scopes=['https://mail.google.com/']
     )
     service = build('gmail', 'v1', credentials=creds)
-    subject = f"Re: {original_subject} — Loan Analysis & Next Steps"
-    # Format next steps as bullet points
-    next_steps_lines = [line.strip('-* ') for line in next_steps.split('\n') if line.strip()]
-    next_steps_bullets = '\n'.join([f"- {line}" for line in next_steps_lines])
-    # Compose a clean, readable email body
-    body = f"""
-Loan Analysis Summary
-====================
-{summary}
+    
+    # Parse the analysis to extract key sections
+    qualification_status = ""
+    key_findings = ""
+    missing_items = ""
+    next_steps = ""
+    
+    # Extract sections from the analysis
+    lines = analysis.split('\n')
+    current_section = ""
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        if 'QUALIFICATION STATUS' in line.upper():
+            current_section = "qualification"
+        elif 'KEY FINDINGS' in line.upper():
+            current_section = "findings"
+        elif 'MISSING ITEMS' in line.upper():
+            current_section = "missing"
+        elif 'NEXT STEPS' in line.upper():
+            current_section = "steps"
+        elif line.startswith('-') or line.startswith('•'):
+            if current_section == "qualification":
+                qualification_status += line + '\n'
+            elif current_section == "findings":
+                key_findings += line + '\n'
+            elif current_section == "missing":
+                missing_items += line + '\n'
+            elif current_section == "steps":
+                next_steps += line + '\n'
+        elif current_section and not line.startswith('#'):
+            # Add non-header lines to current section
+            if current_section == "qualification":
+                qualification_status += line + '\n'
+            elif current_section == "findings":
+                key_findings += line + '\n'
+            elif current_section == "missing":
+                missing_items += line + '\n'
+            elif current_section == "steps":
+                next_steps += line + '\n'
+    
+    # Create a clean, concise email body
+    subject = f"Re: {original_subject} — Preliminary Loan Assessment"
+    
+    body = f"""PRELIMINARY LOAN ASSESSMENT
 
-Next Steps
-==========
-{next_steps_bullets}
+QUALIFICATION STATUS:
+{qualification_status.strip() or "Analysis in progress"}
 
-Details
-=======
-{details}
+KEY FINDINGS:
+{key_findings.strip() or "Processing documents"}
+
+MISSING ITEMS:
+{missing_items.strip() or "None identified"}
+
+NEXT STEPS:
+{next_steps.strip() or "Awaiting additional documents"}
+
+---
+This is an automated preliminary assessment. Please contact us for detailed underwriting.
 """
+    
     message = email.message.EmailMessage()
     message.set_content(body)
     message['To'] = to_email
@@ -203,35 +284,47 @@ if __name__ == '__main__':
             print(f"[SKIP] Not a mortgage-related email.\n")
             continue
         print(f"[PROCESS] Identified as mortgage-related. Proceeding with analysis and response.")
+        
+        # Additional safety check for email addresses
+        from_email = email_data['from'] or ""
+        if any(non_mortgage in from_email.lower() for non_mortgage in ['noreply', 'no-reply', 'reddit', 'google', 'yc', 'ycombinator', 'newsletter', 'alert']):
+            print(f"[SKIP] Email from non-mortgage source: {from_email}")
+            continue
+            
         # Step 1: Extract fields from email body using Gemini
         gemini_fields = extract_fields_with_gemini(email_data['body'])
         print(f"Gemini Body Extraction: {gemini_fields}")
-        # Build RAG index from attachments
-        rag_chunks = build_rag_index(email_data['attachments'], parse_attachment)
-        if rag_chunks:
-            query = "What is the borrower's total income?"
-            relevant_chunks = retrieve_relevant_chunks(rag_chunks, query)
-            prompt = prepare_gemini_prompt(relevant_chunks, query)
-            print(f"Gemini Prompt:\n{prompt}\n---")
+        # Build RAG index from attachments using enhanced parsing
+        from email_ingest.attachment_parser import parse_attachments as enhanced_parse_attachments
+        
+        # Parse attachments with enhanced parsing for RAG
+        parsed_attachments = enhanced_parse_attachments(email_data['attachments'])
+        rag_texts = []
+        for attachment in parsed_attachments:
+            if attachment.get('text'):
+                rag_texts.append(attachment['text'])
+                # Also add structured data as text for RAG
+                if attachment.get('structured_data'):
+                    for key, value in attachment['structured_data'].items():
+                        rag_texts.append(f"{key}: {value}")
+        
+        if rag_texts:
+            # Simple RAG: combine all text and search
+            combined_text = "\n".join(rag_texts)
+            print(f"Found {len(rag_texts)} text chunks from attachments")
+            print(f"Document types found: {[att.get('document_type', 'unknown') for att in parsed_attachments]}")
         else:
             print("No text chunks found in attachments. Skipping RAG retrieval.")
         # Parse attachments with enhanced parsing
         parsed_attachments = parse_attachments(email_data['attachments'])
         email_body = email_data['body']
         
-        # Step 2: Full analysis with Gemini, passing extracted fields as context
+        # Step 2: Simplified analysis with Gemini
         pre_extracted_str = '\n'.join([f'{k.replace('_', ' ').title()}: {v}' for k, v in gemini_fields.items()]) if gemini_fields else 'None found.'
         analysis = analyze_with_gemini(email_body, parsed_attachments, criteria, pre_extracted_str)
         print(f"Gemini Analysis: {analysis}")
-        # Compose summary and next steps (simple extraction for now)
-        summary = analysis.split('\n')[0][:200]  # First line or two as summary
-        next_steps = ''
-        for line in analysis.split('\n'):
-            if 'missing' in line.lower() or 'required' in line.lower() or 'outstanding' in line.lower():
-                next_steps += line + '\n'
-        if not next_steps:
-            next_steps = 'No outstanding items. Ready for next stage.'
-        # Send response email
-        print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']} — Loan Analysis & Next Steps")
-        send_email_response(email_data['from'], email_data['subject'], summary, next_steps, analysis)
+        
+        # Send concise response email
+        print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']} — Preliminary Loan Assessment")
+        send_email_response(email_data['from'], email_data['subject'], analysis)
         print('---') 
