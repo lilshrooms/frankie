@@ -215,13 +215,13 @@ if __name__ == '__main__':
             print(f"Gemini Prompt:\n{prompt}\n---")
         else:
             print("No text chunks found in attachments. Skipping RAG retrieval.")
-        # Parse attachments
+        # Parse attachments with enhanced parsing
         parsed_attachments = parse_attachments(email_data['attachments'])
         email_body = email_data['body']
-        attachments_text = '\n'.join([a['text'] or '' for a in parsed_attachments])
+        
         # Step 2: Full analysis with Gemini, passing extracted fields as context
         pre_extracted_str = '\n'.join([f'{k.replace('_', ' ').title()}: {v}' for k, v in gemini_fields.items()]) if gemini_fields else 'None found.'
-        analysis = analyze_with_gemini(email_body, attachments_text, criteria, pre_extracted_str)
+        analysis = analyze_with_gemini(email_body, parsed_attachments, criteria, pre_extracted_str)
         print(f"Gemini Analysis: {analysis}")
         # Compose summary and next steps (simple extraction for now)
         summary = analysis.split('\n')[0][:200]  # First line or two as summary

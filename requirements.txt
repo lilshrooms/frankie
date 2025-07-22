@@ -6,6 +6,7 @@ google-auth-httplib2
 pdfplumber
 pytesseract
 pillow
+opencv-python
 requests
 python-dotenv
 sentence-transformers
