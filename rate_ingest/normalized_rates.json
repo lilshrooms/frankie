@@ -1,0 +1,29 @@
+[
+  {
+    "loan_type": "30yr_fixed",
+    "rate": 6.625,
+    "apr": 6.757,
+    "lock_period": 30,
+    "source": "zillow",
+    "timestamp": "2025-07-23T20:23:05.251608+00:00",
+    "fees": 2127
+  },
+  {
+    "loan_type": "30yr_fixed",
+    "rate": 5.625,
+    "apr": 5.887,
+    "lock_period": 30,
+    "source": "zillow",
+    "timestamp": "2025-07-23T20:23:05.251608+00:00",
+    "fees": 1995
+  },
+  {
+    "loan_type": "30yr_fixed",
+    "rate": 7.375,
+    "apr": 7.66,
+    "lock_period": 30,
+    "source": "zillow",
+    "timestamp": "2025-07-23T20:23:05.251608+00:00",
+    "fees": 1612
+  }
+]

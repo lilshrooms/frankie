@@ -359,9 +359,9 @@ Great progress! We're almost there. Here's what we have so far:
 {key_findings}
 
 **NEXT STEPS:**
-1. A loan officer will review your application within 5 minutes
+1. We will review your application within 5 minutes
 2. You'll receive a detailed decision shortly
-3. We may request additional information
+3. We may request additional information to help us help you
 
 **Stay tuned - we're working fast to get you into your home!**
 

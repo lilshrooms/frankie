@@ -1,0 +1,26 @@
+[
+  {
+    "product": "30yr_fixed",
+    "rate": 6.625,
+    "apr": 6.906452301709886,
+    "fees": 2431,
+    "source": "zillow",
+    "timestamp": "2025-07-23T20:22:17.219709+00:00"
+  },
+  {
+    "product": "30yr_fixed",
+    "rate": 5.625,
+    "apr": 5.751510832321412,
+    "fees": 1219,
+    "source": "zillow",
+    "timestamp": "2025-07-23T20:22:17.219709+00:00"
+  },
+  {
+    "product": "30yr_fixed",
+    "rate": 7.375,
+    "apr": 7.478705646119711,
+    "fees": 1828,
+    "source": "zillow",
+    "timestamp": "2025-07-23T20:22:17.219709+00:00"
+  }
+]

@@ -1,38 +1,140 @@
 .App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Admin Navigation */
+.admin-nav {
+  background: #2c3e50;
+  color: white;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-brand h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
   color: white;
 }
 
-.App-link {
-  color: #61dafb;
+.nav-links {
+  display: flex;
+  gap: 5px;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.nav-link {
+  background: transparent;
+  border: none;
+  color: #bdc3c7;
+  padding: 15px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.nav-link.active {
+  background: #3498db;
+  color: white;
+}
+
+.nav-link svg {
+  font-size: 16px;
+}
+
+/* Main Content */
+.admin-main {
+  flex: 1;
+  background: #f8f9fa;
+  min-height: calc(100vh - 70px);
+}
+
+.view-header {
+  background: white;
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.view-header h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Coming Soon */
+.coming-soon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  font-size: 18px;
+  color: #666;
+  background: white;
+  margin: 20px;
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .admin-nav {
+    flex-direction: column;
+    padding: 15px;
+    gap: 15px;
   }
-  to {
-    transform: rotate(360deg);
+  
+  .nav-brand h1 {
+    font-size: 20px;
+  }
+  
+  .nav-links {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .nav-link {
+    padding: 12px 15px;
+    font-size: 13px;
+  }
+  
+  .view-header {
+    padding: 15px;
+  }
+  
+  .view-header h2 {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-links {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .nav-link {
+    justify-content: center;
   }
 }

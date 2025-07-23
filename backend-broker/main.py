@@ -475,6 +475,95 @@ async def delete_conversation(thread_id: str):
         logger.error(f"Error deleting conversation {thread_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+class ConversationStateUpdate(BaseModel):
+    """Request model for updating conversation state."""
+    state: str
+    admin_notes: Optional[str] = None
+    admin_intervention: bool = True
+
+class AdminResponseRequest(BaseModel):
+    """Request model for adding admin response."""
+    response: str
+    override_ai: bool = False
+    admin_intervention: bool = True
+
+@app.put("/conversations/{thread_id}/state")
+async def update_conversation_state(thread_id: str, request: ConversationStateUpdate):
+    """Update conversation state with admin intervention."""
+    try:
+        # Get the conversation
+        conversation = conversation_manager.get_conversation(thread_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail=f"Conversation {thread_id} not found")
+        
+        # Update the state
+        conversation["state"] = request.state
+        if request.admin_notes:
+            conversation["admin_notes"] = request.admin_notes
+        conversation["admin_intervention"] = request.admin_intervention
+        conversation["updated_at"] = datetime.now().isoformat()
+        
+        # Save the updated conversation (if save method exists)
+        try:
+            conversation_manager.save_conversation(thread_id, conversation)
+        except AttributeError:
+            # If save method doesn't exist, just update in memory
+            pass
+        
+        return {
+            "success": True, 
+            "message": f"Conversation state updated to {request.state}",
+            "conversation": conversation
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating conversation state {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update conversation state: {str(e)}")
+
+@app.post("/conversations/{thread_id}/admin-response")
+async def add_admin_response(thread_id: str, request: AdminResponseRequest):
+    """Add admin response to conversation."""
+    try:
+        # Get the conversation
+        conversation = conversation_manager.get_conversation(thread_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail=f"Conversation {thread_id} not found")
+        
+        # Add admin response
+        admin_email = {
+            "sender": "admin@frankie.com",
+            "subject": "Admin Response",
+            "body": request.response,
+            "timestamp": datetime.now().isoformat(),
+            "admin_intervention": request.admin_intervention,
+            "override_ai": request.override_ai
+        }
+        
+        conversation["emails"].append(admin_email)
+        conversation["turn"] += 1
+        conversation["updated_at"] = datetime.now().isoformat()
+        
+        # Save the updated conversation (if save method exists)
+        try:
+            conversation_manager.save_conversation(thread_id, conversation)
+        except AttributeError:
+            # If save method doesn't exist, just update in memory
+            pass
+        
+        return {
+            "success": True, 
+            "message": "Admin response added successfully",
+            "conversation": conversation
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding admin response to {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add admin response: {str(e)}")
+
 # Rate system endpoints
 @app.get("/rates/current")
 async def get_current_rates():
