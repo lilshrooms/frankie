@@ -34,8 +34,23 @@ def get_gmail_service():
 
 def fetch_recent_emails():
     service = get_gmail_service()
-    results = service.users().messages().list(userId='me', maxResults=20).execute()
+    
+    # Get unread emails from the last 24 hours
+    import datetime
+    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+    date_query = yesterday.strftime('%Y/%m/%d')
+    
+    # Query for unread emails from the last 24 hours
+    query = f'is:unread after:{date_query}'
+    results = service.users().messages().list(userId='me', q=query, maxResults=50).execute()
     messages = results.get('messages', [])
+    
+    if not messages:
+        print("No unread emails found from the last 24 hours.")
+        return []
+    
+    print(f"Found {len(messages)} unread emails from the last 24 hours.")
+    
     emails = []
     for msg in messages:
         msg_data = service.users().messages().get(userId='me', id=msg['id']).execute()
@@ -43,6 +58,10 @@ def fetch_recent_emails():
         headers = payload.get('headers', [])
         subject = next((h['value'] for h in headers if h['name'] == 'Subject'), None)
         from_email = next((h['value'] for h in headers if h['name'] == 'From'), None)
+        
+        # Get email date
+        date_header = next((h['value'] for h in headers if h['name'] == 'Date'), None)
+        
         body = ''
         if 'data' in payload.get('body', {}):
             body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
@@ -50,6 +69,7 @@ def fetch_recent_emails():
             for part in payload['parts']:
                 if part['mimeType'] == 'text/plain' and 'data' in part['body']:
                     body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+        
         attachments = []
         if 'parts' in payload:
             for part in payload['parts']:
@@ -59,8 +79,30 @@ def fetch_recent_emails():
                     att = service.users().messages().attachments().get(userId='me', messageId=msg['id'], id=att_id).execute()
                     file_data = base64.urlsafe_b64decode(att['data'])
                     attachments.append({'filename': filename, 'data': file_data})
-        emails.append({'id': msg['id'], 'subject': subject, 'from': from_email, 'body': body, 'attachments': attachments})
+        
+        emails.append({
+            'id': msg['id'], 
+            'subject': subject, 
+            'from': from_email, 
+            'body': body, 
+            'attachments': attachments,
+            'date': date_header
+        })
+    
     return emails
+
+def mark_email_as_read(email_id):
+    """Mark an email as read after processing"""
+    try:
+        service = get_gmail_service()
+        service.users().messages().modify(
+            userId='me', 
+            id=email_id, 
+            body={'removeLabelIds': ['UNREAD']}
+        ).execute()
+        print(f"Marked email {email_id} as read")
+    except Exception as e:
+        print(f"Error marking email as read: {e}")
 
 def parse_attachment(att):
     # Use your existing logic to parse PDFs/images
@@ -114,12 +156,19 @@ def is_mortgage_email(subject, body):
         'income verification', 'bank statement', 'w-2', 'pay stub', 'asset statement',
         'purchase contract', 'sales contract', 'real estate agent', 'mls',
         'fha', 'va', 'usda', 'conventional', 'jumbo', 'non-qm', 'conforming',
-        'commitment letter', 'clear to close', 'heloc', 'home equity'
+        'commitment letter', 'clear to close', 'heloc', 'home equity',
+        'mortgage inbound', 'process mortgage', 'mortgage inquiry', 'mortgage request',
+        'mortgage lead', 'mortgage application', 'mortgage pre-approval', 'mortgage prequal',
+        'mortgage pre-qual', 'mortgage prequalification', 'mortgage pre-qualification'
     ]
     
     # Check if subject contains strong mortgage indicators (should be processed)
     subject_mortgage_count = sum(1 for keyword in strong_mortgage_indicators if keyword in subject_lower)
     if subject_mortgage_count >= 1:
+        return True
+    
+    # Also check if subject contains the word "mortgage" (strong indicator)
+    if 'mortgage' in subject_lower:
         return True
     
     # For body content, require at least 2 mortgage indicators
@@ -282,6 +331,8 @@ if __name__ == '__main__':
         print(f"Body preview: {email_data['body'][:120].replace('\n', ' ')}")
         if not is_mortgage_email(email_data['subject'], email_data['body']):
             print(f"[SKIP] Not a mortgage-related email.\n")
+            # Mark non-mortgage emails as read to avoid reprocessing
+            mark_email_as_read(email_data['id'])
             continue
         print(f"[PROCESS] Identified as mortgage-related. Proceeding with analysis and response.")
         
@@ -327,4 +378,7 @@ if __name__ == '__main__':
         # Send concise response email
         print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']} — Preliminary Loan Assessment")
         send_email_response(email_data['from'], email_data['subject'], analysis)
+        
+        # Mark email as read after processing
+        mark_email_as_read(email_data['id'])
         print('---') 
