@@ -136,10 +136,7 @@ def is_mortgage_email(subject, body):
     
     # Check for obvious non-mortgage indicators first
     non_mortgage_indicators = [
-        'co-founder', 'startup', 'yc', 'ycombinator', 'investor', 'funding', 'venture',
-        'google alert', 'property tax', 'news', 'article', 'blog', 'newsletter',
-        'webinar', 'event', 'conference', 'podcast', 'interview', 'marketing',
-        'reddit', 'social media', 'notification', 'alert', 'update'
+        # Add actual non-mortgage indicators here if needed
     ]
     
     # If any non-mortgage indicators are present, it's likely not a mortgage email
@@ -159,7 +156,9 @@ def is_mortgage_email(subject, body):
         'commitment letter', 'clear to close', 'heloc', 'home equity',
         'mortgage inbound', 'process mortgage', 'mortgage inquiry', 'mortgage request',
         'mortgage lead', 'mortgage application', 'mortgage pre-approval', 'mortgage prequal',
-        'mortgage pre-qual', 'mortgage prequalification', 'mortgage pre-qualification'
+        'mortgage pre-qual', 'mortgage prequalification', 'mortgage pre-qualification', 'refi', 'refinance', 
+        'refinancing', 'refinance loan', 'refinance mortgage', 'refinance mortgage loan', 'refinance mortgage application', 'refinance loan application', 'refinance pre-approval', 
+        'refinance prequalification', 'refinance underwriting', 'refinance borrower', 'refinance property address', 'refinancing closing disclosure', 'refinancing settlement statement', 'refinancing good faith estimate', 'refinancing loan estimate', 'refinancing down payment', 'refinancing earnest money', 'refinancing appraisal', 'refinancing credit report', 'refinancing income verification', 'refinancing bank statement', 'refinancing w-2', 'refinancing pay stub', 'refinancing asset statement', 'refinancing purchase contract', 'refinancing sales contract', 'refinancing real estate agent', 'refinancing mls', 'refinancing fha', 'refinancing va', 'refinancing usda', 'refinancing conventional', 'refinancing jumbo', 'refinancing non-qm', 'refinancing conforming', 'refinancing commitment letter', 'refinancing clear to close', 'refinancing heloc', 'refinancing home equity'
     ]
     
     # Check if subject contains strong mortgage indicators (should be processed)
@@ -193,23 +192,51 @@ def extract_fields_from_body(body):
 
 def extract_fields_with_gemini(email_body):
     # Use Gemini to extract key fields from the email body only
-    prompt = '''
-Extract the following fields from the email body below if present:
-- Credit Score
-- Loan Amount
-- Purchase Price
-- Property Type
-- Occupancy Type
-- Monthly Debts
+    prompt = f'''
+You are a mortgage loan processor extracting key information from an email. Extract the following fields from the email body below:
+
+**CRITICAL FIELDS TO EXTRACT:**
+- Credit Score (look for numbers like "700s", "750", "high 700s", "low 600s", etc.)
+- Loan Amount (look for amounts like "300k", "$300,000", "300k loan", etc.)
+- Purchase Price (look for amounts like "400k", "$400,000", "buying for 400k", etc.)
+- Property Type (SFH, condo, townhouse, etc.)
+- Occupancy Type (primary, investment, second home)
+- Borrower Name(s)
+- Property Location (city, state)
+
+**ADDITIONAL FIELDS:**
 - Monthly Income
-- Employer(s)
-- Any other relevant details
+- Monthly Debts
+- Down Payment Amount
+- Loan Type (Conventional, FHA, VA, etc.)
 
-Return your answer as a JSON object with keys for each field. If a field is not present, use null.
+**EMAIL BODY:**
+{email_body}
 
-EMAIL BODY:
+**INSTRUCTIONS:**
+1. Look carefully for any numbers that could be credit scores, loan amounts, or purchase prices
+2. Pay attention to phrases like "needs a 300k loan", "buying for 400k", "credit score is high 700s"
+3. Return ONLY a valid JSON object with the extracted fields
+4. Use null for missing fields
+5. For credit scores, extract the actual number or range (e.g., "750" or "700s")
+
+**EXAMPLE OUTPUT:**
+{{
+  "credit_score": "750",
+  "loan_amount": "300000",
+  "purchase_price": "400000",
+  "property_type": "SFH",
+  "occupancy": "primary",
+  "borrower_name": "John Doe",
+  "property_location": "SF CA",
+  "monthly_income": null,
+  "monthly_debts": null,
+  "down_payment": "100000",
+  "loan_type": null
+}}
+
+Return ONLY the JSON object, no other text.
 '''
-    prompt += email_body
     from email_ingest.gemini_analyzer import GEMINI_API_URL
     import os, requests
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -221,8 +248,17 @@ EMAIL BODY:
         # Try to parse JSON from Gemini's response
         import json
         try:
+            # Clean up the response to extract just the JSON
+            text = text.strip()
+            if text.startswith('```json'):
+                text = text[7:]
+            if text.endswith('```'):
+                text = text[:-3]
+            text = text.strip()
             return json.loads(text)
-        except Exception:
+        except Exception as e:
+            print(f"JSON parsing error: {e}")
+            print(f"Raw response: {text}")
             return {"raw": text}
     else:
         return {"error": f"Error: {response.status_code} {response.text}"}
@@ -329,7 +365,8 @@ if __name__ == '__main__':
     for email_data in emails:
         print(f"\n---\nChecking email: Subject: {email_data['subject']} | From: {email_data['from']}")
         print(f"Body preview: {email_data['body'][:120].replace('\n', ' ')}")
-        if not is_mortgage_email(email_data['subject'], email_data['body']):
+        is_mortgage = is_mortgage_email(email_data['subject'], email_data['body'])
+        if not is_mortgage:
             print(f"[SKIP] Not a mortgage-related email.\n")
             # Mark non-mortgage emails as read to avoid reprocessing
             mark_email_as_read(email_data['id'])
@@ -377,7 +414,16 @@ if __name__ == '__main__':
         email_body = email_data['body']
         
         # Step 2: Simplified analysis with Gemini
-        pre_extracted_str = '\n'.join([f'{k.replace('_', ' ').title()}: {v}' for k, v in gemini_fields.items()]) if gemini_fields else 'None found.'
+        if gemini_fields and isinstance(gemini_fields, dict):
+            # Format extracted fields properly
+            formatted_fields = []
+            for k, v in gemini_fields.items():
+                if v and v != "null" and v != "None":
+                    formatted_fields.append(f"{k.replace('_', ' ').title()}: {v}")
+            pre_extracted_str = '\n'.join(formatted_fields) if formatted_fields else 'None found.'
+        else:
+            pre_extracted_str = 'None found.'
+        print(f"Formatted extracted fields: {pre_extracted_str}")
         analysis = analyze_with_gemini(email_body, parsed_attachments, criteria, pre_extracted_str)
         print(f"Gemini Analysis: {analysis}")
         

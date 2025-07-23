@@ -66,10 +66,11 @@ export async function softDeleteLoanFile(id: number): Promise<LoanFile> {
   return response.json();
 }
 
-export async function analyzeLoanFile(id: number) {
+export async function analyzeLoanFile(id: number, emailBody?: string) {
   const response = await fetch(`${API_BASE_URL}/loan-files/${id}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email_body: emailBody || "" }),
   });
   if (!response.ok) {
     throw new Error('Failed to analyze loan file');

@@ -37,6 +37,9 @@ const Dashboard: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [emailBody, setEmailBody] = useState("");
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [analyzingFileId, setAnalyzingFileId] = useState<number | null>(null);
 
   useEffect(() => {
     loadLoanFiles();
@@ -94,8 +97,11 @@ const Dashboard: React.FC = () => {
     setAnalysisLoading(true);
     setAnalysisError(null);
     try {
-      const result = await analyzeLoanFile(loanFileId);
+      const result = await analyzeLoanFile(loanFileId, emailBody);
       setAnalysisResult(result);
+      setShowEmailInput(false);
+      setEmailBody("");
+      setAnalyzingFileId(null);
     } catch (err: any) {
       setAnalysisError(err.message || 'Failed to analyze loan file');
     } finally {
@@ -299,7 +305,10 @@ const Dashboard: React.FC = () => {
                     <Tooltip content="Run AI analysis on all attachments">
                       <button
                         className="action-btn"
-                        onClick={() => handleAnalyze(file.id)}
+                        onClick={() => {
+                          setAnalyzingFileId(file.id);
+                          setShowEmailInput(true);
+                        }}
                         disabled={analysisLoading}
                         style={{ background: '#1976d2' }}
                       >
@@ -416,6 +425,54 @@ const Dashboard: React.FC = () => {
               <pre style={{ background: '#f7f7fa', padding: 10, borderRadius: 6, maxHeight: 200, overflow: 'auto' }}>{analysisResult.analysis_text}</pre>
             </div>
             <button className="action-btn" onClick={() => setAnalysisResult(null)} style={{ marginTop: 8 }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showEmailInput && (
+        <div className="modal-overlay" onClick={() => setShowEmailInput(false)}>
+          <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <h3>AI Analysis</h3>
+            <p style={{ marginBottom: 16, color: '#666' }}>
+              Enter the email body content to include in the analysis. This will help the AI understand the loan context better.
+            </p>
+            <div style={{ marginBottom: 16 }}>
+              <label>
+                <b>Email Body (Optional):</b><br/>
+                <textarea
+                  value={emailBody}
+                  onChange={e => setEmailBody(e.target.value)}
+                  placeholder="Paste the email content here, e.g. 'borrower is single, buying SFH in SF CA for 400k, needs a 300k loan. Credit score is high 700s...'"
+                  style={{
+                    width: '100%',
+                    minHeight: 120,
+                    padding: 8,
+                    border: '1px solid #ddd',
+                    borderRadius: 4,
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+              </label>
+            </div>
+            {analysisError && <div className="error">{analysisError}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button
+                type="button"
+                className="action-btn"
+                style={{ background: '#888' }}
+                onClick={() => setShowEmailInput(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="action-btn"
+                disabled={analysisLoading}
+                onClick={() => analyzingFileId && handleAnalyze(analyzingFileId)}
+              >
+                {analysisLoading ? 'Analyzing...' : 'Run Analysis'}
+              </button>
+            </div>
           </div>
         </div>
       )}

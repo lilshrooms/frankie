@@ -197,17 +197,36 @@ def classify_doc_type(filename: str, text: str = "") -> str:
     if "social security number" in text and "date of birth" in text: return "ID"
     return "Unknown"
 
+class AnalyzeRequest(BaseModel):
+    email_body: str = ""
+
 @app.post("/loan-files/{loan_file_id}/analyze")
-def analyze_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
+def analyze_loan_file(loan_file_id: int, request: AnalyzeRequest = Body(...), db: Session = Depends(get_db)):
+    email_body = request.email_body
     # 1. Fetch loan file and attachments
     loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
     if not loan_file:
         raise HTTPException(status_code=404, detail="Loan file not found")
+    
     attachments = db.query(models.Attachment).filter(models.Attachment.loan_file_id == loan_file_id).all()
-    if not attachments:
-        raise HTTPException(status_code=404, detail="No attachments found for this loan file")
+    
+    if not attachments and not email_body:
+        raise HTTPException(status_code=404, detail="No attachments or email body provided for analysis")
 
-    # 2. For each attachment: parse PDF or image
+    # 2. Use provided email body or create context from loan file
+    if not email_body:
+        # Create context from loan file metadata
+        email_body = f"""
+Loan Application Summary:
+- Borrower: {loan_file.borrower}
+- Broker: {loan_file.broker}
+- Loan Type: {getattr(loan_file, 'loan_type', 'Unknown')}
+- Amount: {getattr(loan_file, 'amount', 'Unknown')}
+- Status: {loan_file.status}
+- Outstanding Items: {loan_file.outstanding_items or 'None specified'}
+"""
+
+    # 3. For each attachment: parse PDF or image
     extracted_texts = []
     for att in attachments:
         file_path = att.file_url if isinstance(att.file_url, str) else str(att.file_url)
@@ -228,13 +247,51 @@ def analyze_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
         else:
             extracted_texts.append(f"[Unsupported file type: {file_path}]")
 
-    # 3. Combine all extracted text
+    # 4. Combine all extracted text
     attachments_text = "\n\n".join(extracted_texts)
 
-    # 4. Run Gemini analysis
+    # 5. Run Gemini analysis with email body
     from email_ingest.gemini_analyzer import analyze_with_gemini
-    # For now, use empty strings for email_body, criteria, pre_extracted_str
-    analysis_result = analyze_with_gemini("", attachments_text, {}, "")
+    # Load basic criteria for analysis
+    criteria = {
+        "credit_score_min": 620,
+        "dti_max": 43,
+        "down_payment_min": 3.5
+    }
+    
+    # Extract key fields from email body using Gemini
+    pre_extracted_str = ""
+    if email_body:
+        # Use a simple extraction prompt for email body
+        extraction_prompt = f"""
+Extract key loan information from this email body. Return as key-value pairs:
+
+Email: {email_body}
+
+Extract: credit score, loan amount, purchase price, borrower name, income, property type, occupancy
+"""
+        try:
+            from email_ingest.gemini_analyzer import GEMINI_API_URL
+            import requests
+            data = {"contents": [{"parts": [{"text": extraction_prompt}]}]}
+            response = requests.post(GEMINI_API_URL, json=data, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                pre_extracted_str = result['candidates'][0]['content']['parts'][0]['text']
+                print(f"Pre-extracted fields: {pre_extracted_str}")
+        except Exception as e:
+            print(f"Error extracting fields from email: {e}")
+    
+    # Convert attachments_text to the format expected by analyze_with_gemini
+    attachments_data = []
+    if attachments_text:
+        attachments_data = [{
+            'filename': 'combined_documents.txt',
+            'text': attachments_text,
+            'document_type': 'Combined Documents'
+        }]
+    
+    analysis_result = analyze_with_gemini(email_body, attachments_data, criteria, pre_extracted_str)
 
     # 5. Store result in AIAnalysis table
     analysis = models.AIAnalysis(
