@@ -11,3 +11,5 @@ requests
 python-dotenv
 sentence-transformers
 scikit-learn
+beautifulsoup4
+schedule

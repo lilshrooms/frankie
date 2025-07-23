@@ -1,0 +1,18 @@
+[Unit]
+Description=Frankie Rate Scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/frankie/ingest
+Environment=PATH=/path/to/frankie/venv/bin
+ExecStart=/path/to/frankie/venv/bin/python rate_scheduler.py --run-time 09:00
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 
