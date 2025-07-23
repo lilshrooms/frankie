@@ -105,6 +105,7 @@ def fetch_recent_emails():
         
         emails.append({
             'id': msg['id'], 
+            'thread_id': msg.get('threadId'),  # Add thread ID for conversation tracking
             'subject': subject, 
             'from': from_email, 
             'body': body, 
@@ -369,20 +370,30 @@ This is an automated preliminary assessment. Please contact us for detailed unde
     service.users().messages().send(userId='me', body=send_message).execute()
 
 if __name__ == '__main__':
+    # Initialize conversation manager
+    from conversation_manager import ConversationManager
+    conversation_manager = ConversationManager()
+    
     emails = fetch_recent_emails()
     # Load criteria (for now, use conventional.yaml)
     with open('../criteria/conventional.yaml', 'r') as f:
         criteria = yaml.safe_load(f)
+    
     for email_data in emails:
         print(f"\n---\nChecking email: Subject: {email_data['subject']} | From: {email_data['from']}")
         print(f"Body preview: {email_data['body'][:120].replace('\n', ' ')}")
         print(f"Body length: {len(email_data['body'])}")
-        if len(email_data['body']) > 0:
-            print(f"Full body: {repr(email_data['body'])}")
+        
+        # Get or create conversation context
+        thread_id = email_data.get('thread_id', 'unknown')
+        borrower_email = email_data['from']
+        conversation_context = conversation_manager.get_or_create_conversation(thread_id, borrower_email)
+        
+        print(f"[CONVERSATION] Turn {conversation_context.conversation_turn} | State: {conversation_context.conversation_state}")
+        
         is_mortgage = is_mortgage_email(email_data['subject'], email_data['body'])
         if not is_mortgage:
             print(f"[SKIP] Not a mortgage-related email.\n")
-            # Mark non-mortgage emails as read to avoid reprocessing
             mark_email_as_read(email_data['id'])
             continue
         print(f"[PROCESS] Identified as mortgage-related. Proceeding with analysis and response.")
@@ -401,18 +412,10 @@ if __name__ == '__main__':
         if any(non_mortgage in from_email.lower() for non_mortgage in ['noreply', 'no-reply', 'reddit', 'google', 'yc', 'ycombinator', 'newsletter', 'alert']):
             print(f"[SKIP] Email from non-mortgage source: {from_email}")
             continue
-            
-        # Step 1: Extract fields from email body using Gemini
-        gemini_fields = extract_fields_with_gemini(email_data['body'])
-        print(f"Gemini Body Extraction: {gemini_fields}")
         
-
-        # Build RAG index from attachments using enhanced parsing
-        from attachment_parser import parse_attachments as enhanced_parse_attachments
-        
-        # Parse attachments with enhanced parsing for RAG
-        parsed_attachments = enhanced_parse_attachments(email_data['attachments'])
-        rag_texts = []
+        # Parse attachments
+        from attachment_parser import parse_attachments
+        parsed_attachments = parse_attachments(email_data['attachments'])
         
         print(f"Processing {len(parsed_attachments)} attachments:")
         for attachment in parsed_attachments:
@@ -420,28 +423,31 @@ if __name__ == '__main__':
             if attachment.get('text'):
                 ocr_status = " (OCR used)" if attachment.get('used_ocr', False) else ""
                 print(f"    Text length: {len(attachment['text'])} characters{ocr_status}")
-                rag_texts.append(attachment['text'])
-                # Also add structured data as text for RAG
-                if attachment.get('structured_data'):
-                    for key, value in attachment['structured_data'].items():
-                        rag_texts.append(f"{key}: {value}")
             else:
                 print(f"    WARNING: No text extracted from {attachment['filename']}")
         
-        if rag_texts:
-            # Simple RAG: combine all text and search
-            combined_text = "\n".join(rag_texts)
-            print(f"Found {len(rag_texts)} text chunks from attachments")
-            print(f"Document types found: {[att.get('document_type', 'unknown') for att in parsed_attachments]}")
-        else:
-            print("No text chunks found in attachments. Skipping RAG retrieval.")
-        # Parse attachments with enhanced parsing
-        parsed_attachments = parse_attachments(email_data['attachments'])
-        email_body = email_data['body']
+        # Determine conversation state based on content
+        new_state = conversation_manager.determine_conversation_state(
+            email_body, 
+            [att['filename'] for att in parsed_attachments], 
+            conversation_context
+        )
         
-        # Step 2: Simplified analysis with Gemini
+        if new_state != conversation_context.conversation_state:
+            print(f"[STATE CHANGE] {conversation_context.conversation_state} → {new_state}")
+            conversation_context.conversation_state = new_state
+        
+        # Extract document types from new attachments
+        new_document_types = conversation_manager.extract_document_types(
+            [att['filename'] for att in parsed_attachments]
+        )
+        
+        # Step 1: Extract fields from email body using Gemini
+        gemini_fields = extract_fields_with_gemini(email_data['body'])
+        print(f"Gemini Body Extraction: {gemini_fields}")
+        
+        # Step 2: Analyze with conversation context
         if gemini_fields and isinstance(gemini_fields, dict):
-            # Format extracted fields properly
             formatted_fields = []
             for k, v in gemini_fields.items():
                 if v and v != "null" and v != "None":
@@ -449,13 +455,40 @@ if __name__ == '__main__':
             pre_extracted_str = '\n'.join(formatted_fields) if formatted_fields else 'None found.'
         else:
             pre_extracted_str = 'None found.'
+        
         print(f"Formatted extracted fields: {pre_extracted_str}")
-        analysis = analyze_with_gemini(email_body, parsed_attachments, criteria, pre_extracted_str)
+        
+        # Use conversation-aware analysis
+        analysis = analyze_with_gemini(
+            email_body, 
+            parsed_attachments, 
+            criteria, 
+            pre_extracted_str,
+            conversation_context
+        )
         print(f"Gemini Analysis: {analysis}")
         
-        # Send concise response email
-        print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']} — Preliminary Loan Assessment")
-        send_email_response(email_data['from'], email_data['subject'], analysis)
+        # Generate response based on conversation state
+        response = conversation_manager.generate_response_based_on_state(conversation_context, {
+            'loan_amount': gemini_fields.get('loan_amount', 'N/A'),
+            'property_value': gemini_fields.get('property_value', 'N/A'),
+            'credit_score': gemini_fields.get('credit_score', 'N/A'),
+            'key_findings': analysis,
+            'missing_items': 'Additional documents may be required',
+            'next_steps': 'Please provide requested documents'
+        })
+        
+        # Update conversation state
+        conversation_manager.update_conversation_state(
+            conversation_context,
+            new_state,
+            new_document_types,
+            analysis[:500] + "..." if len(analysis) > 500 else analysis  # Truncate for summary
+        )
+        
+        # Send response email
+        print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']}")
+        send_email_response(email_data['from'], email_data['subject'], response)
         
         # Mark email as read after processing
         mark_email_as_read(email_data['id'])

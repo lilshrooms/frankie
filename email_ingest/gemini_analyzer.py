@@ -1,7 +1,8 @@
 import os
 import requests
 from dotenv import load_dotenv
-from typing import List, Dict
+from typing import List, Dict, Optional
+from conversation_manager import ConversationContext
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -31,7 +32,8 @@ def format_tables(tables: List) -> str:
                 formatted += "| " + " | ".join(str(cell) if cell else "" for cell in row) + " |\n"
     return formatted
 
-def analyze_with_gemini(email_body: str, attachments_data: List[Dict], criteria: dict, pre_extracted_str: str) -> str:
+def analyze_with_gemini(email_body: str, attachments_data: List[Dict], criteria: dict, 
+                       pre_extracted_str: str, conversation_context: Optional[ConversationContext] = None) -> str:
     # Prepare enhanced attachment information
     attachments_text = ""
     all_structured_data = {}
@@ -55,11 +57,24 @@ def analyze_with_gemini(email_body: str, attachments_data: List[Dict], criteria:
                 attachments_text += f"\n{tables_text}\n"
                 all_tables.extend(attachment['tables'])
     
-    # FRESH START: Simple, clear analysis prompt
+    # Build conversation context if available
+    conversation_text = ""
+    if conversation_context:
+        conversation_text = f"""
+**CONVERSATION CONTEXT:**
+- Conversation Turn: {conversation_context.conversation_turn}
+- Current State: {conversation_context.conversation_state}
+- Previous Documents Received: {', '.join(conversation_context.received_documents) if conversation_context.received_documents else 'None'}
+- Conversation Summary: {conversation_context.conversation_summary if conversation_context.conversation_summary else 'Initial request'}
+"""
+    
+    # Enhanced prompt with conversation context
     prompt = f'''
 Analyze this mortgage loan request. Use ONLY information that is explicitly provided.
 
-**EMAIL BODY:**
+{conversation_text}
+
+**CURRENT EMAIL BODY:**
 {email_body}
 
 **EXTRACTED EMAIL FIELDS:**
@@ -70,8 +85,9 @@ Analyze this mortgage loan request. Use ONLY information that is explicitly prov
 
 **TASK:**
 1. List ONLY information that is explicitly stated
-2. Identify what is missing
-3. Provide next steps
+2. Identify what is missing based on conversation context
+3. Provide next steps considering previous interactions
+4. Update conversation summary with new information
 
 **CRITICAL: DO NOT make up or infer any information. If something is not stated, mark it as missing.**
 
@@ -80,6 +96,7 @@ Return a structured response with:
 - KEY FINDINGS (only stated facts)
 - MISSING ITEMS
 - NEXT STEPS
+- CONVERSATION SUMMARY (brief summary of all information gathered so far)
 '''
     
     data = {
@@ -96,4 +113,70 @@ Return a structured response with:
     except requests.exceptions.Timeout:
         return "Error: Request timed out. Please try again."
     except Exception as e:
-        return f"Error: {str(e)}" 
+        return f"Error: {str(e)}"
+
+def analyze_conversation_context(email_body: str, attachments_data: List[Dict], 
+                               conversation_context: ConversationContext) -> Dict:
+    """Analyze email in the context of ongoing conversation"""
+    
+    # Build context-aware prompt
+    context_prompt = f"""
+You are analyzing an email in an ongoing mortgage loan conversation.
+
+**CONVERSATION HISTORY:**
+- Turn: {conversation_context.conversation_turn}
+- State: {conversation_context.conversation_state}
+- Previously received: {', '.join(conversation_context.received_documents) if conversation_context.received_documents else 'None'}
+- Summary: {conversation_context.conversation_summary if conversation_context.conversation_summary else 'Initial request'}
+
+**CURRENT EMAIL:**
+{email_body}
+
+**NEW ATTACHMENTS:**
+{len(attachments_data)} attachments provided
+
+**TASK:**
+1. Extract any new information provided
+2. Identify what documents were sent
+3. Determine if this addresses previous requests
+4. Suggest next steps
+
+Return JSON format:
+{{
+    "new_information": "list of new facts provided",
+    "documents_received": ["list", "of", "document", "types"],
+    "addresses_previous_requests": true/false,
+    "missing_items": ["list", "of", "still", "missing", "items"],
+    "next_state": "suggested next conversation state",
+    "response_type": "document_request/underwriting/complete"
+}}
+"""
+    
+    data = {
+        "contents": [{"parts": [{"text": context_prompt}]}]
+    }
+    
+    try:
+        response = requests.post(GEMINI_API_URL, json=data, timeout=60)
+        if response.status_code == 200:
+            result = response.json()
+            response_text = result['candidates'][0]['content']['parts'][0]['text']
+            
+            # Try to parse JSON response
+            import json
+            try:
+                return json.loads(response_text)
+            except json.JSONDecodeError:
+                # Fallback to text parsing
+                return {
+                    "new_information": "Unable to parse structured response",
+                    "documents_received": [],
+                    "addresses_previous_requests": False,
+                    "missing_items": ["Unable to determine"],
+                    "next_state": conversation_context.conversation_state,
+                    "response_type": "generic"
+                }
+        else:
+            return {"error": f"API Error: {response.status_code}"}
+    except Exception as e:
+        return {"error": f"Request failed: {str(e)}"} 

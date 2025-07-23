@@ -1,0 +1,214 @@
+{
+  "19838b6217f4632b": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19838b6217f4632b",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19838b3917f6950b": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19838b3917f6950b",
+    "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19561da5397b768b": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19561da5397b768b",
+    "borrower_email": "Liv Acker <oacker@redventures.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198377e4786c2df7": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198377e4786c2df7",
+    "borrower_email": "Reddit <noreply@redditmail.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198386cc7148c672": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198386cc7148c672",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198386a36d1e5b0f": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198386a36d1e5b0f",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983868c419c0600": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983868c419c0600",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198386644a03a724": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198386644a03a724",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198386031c41584c": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198386031c41584c",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198385f11f07a98f": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198385f11f07a98f",
+    "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
+    "conversation_state": "waiting_docs",
+    "conversation_summary": "**QUALIFICATION STATUS:** Pending - Significant Discrepancies and Missing Information\n\n**KEY FINDINGS (only stated facts):**\n\n*   **Borrower Name:** Xinwei Tan\n*   **Loan Amount Requested:** $400,000\n*   **Purchase Price:** $500,000\n*   **Property Type:** Condo\n*   **Property Location:** NYC\n*   **Credit Score (Stated by borrower):** 780\n*   **Assets:** A bank statement for the period of 04/18/2020 - 05/15/2020 shows an ending balance of $651.23.\n*   **Income/Employment:** A paystub dated 09/30/...",
+    "requested_documents": [],
+    "received_documents": [
+      "bank_statement",
+      "pay_stub"
+    ],
+    "conversation_turn": 2,
+    "previous_analyses": []
+  },
+  "1983855a4b09bdb0": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983855a4b09bdb0",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983850325f23391": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983850325f23391",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983848af79cd5f3": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983848af79cd5f3",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19838461655981d2": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19838461655981d2",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983840c5d074063": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983840c5d074063",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "198380c0bd6cef5d": {
+    "loan_file_id": null,
+    "gmail_thread_id": "198380c0bd6cef5d",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19837d3491b99f10": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19837d3491b99f10",
+    "borrower_email": "Ian Tan <ian@yourhomebase.co>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19837a2ceb9119da": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19837a2ceb9119da",
+    "borrower_email": "Sam Blumenthal <sam.blumenthal@antler.co>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19837cad388f8267": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19837cad388f8267",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  }
+}
