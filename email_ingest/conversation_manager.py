@@ -203,59 +203,200 @@ class ConversationManager:
         loan_amount = analysis_result.get('loan_amount', 'N/A')
         property_value = analysis_result.get('property_value', 'N/A')
         credit_score = analysis_result.get('credit_score', 'N/A')
+        borrower_name = analysis_result.get('borrower_name', 'Borrower')
         
-        return f"""Thank you for your loan request for ${loan_amount} on a ${property_value} property.
+        return f"""Hi {borrower_name},
 
-PRELIMINARY ASSESSMENT:
-Based on your credit score of {credit_score}, we can proceed with your application.
+Thank you for your loan request! We're excited to help you get into your new home faster.
 
-REQUIRED DOCUMENTS:
-To complete your application, please provide:
-- Recent pay stubs (last 2 months)
-- Bank statements (last 2 months) 
-- W-2 forms (last 2 years)
-- Tax returns (last 2 years)
-- Driver's license or ID
-- Proof of funds for down payment
+**LOAN SUMMARY:**
+• Loan Amount: ${loan_amount:,}
+• Property Value: ${property_value:,}
+• Credit Score: {credit_score}
+• Property Type: {analysis_result.get('property_type', 'N/A')}
+• Location: {analysis_result.get('property_location', 'N/A')}
 
-Please reply to this email with the requested documents attached.
+**FAST TRACK TO APPROVAL:**
+To get you approved quickly, please provide these documents:
+
+**REQUIRED DOCUMENTS:**
+□ Recent pay stubs (last 2 months)
+□ Bank statements (last 2 months)
+□ W-2 forms (last 2 years)
+□ Tax returns (last 2 years)
+□ Proof of funds for down payment
+
+**QUICK RESPONSE NEEDED:**
+1. Gather the documents above
+2. Reply to this email with all documents attached
+3. We'll provide your preliminary decision in 5 minutes
+
+**Reply now to get started on your home journey!**
 
 ---
-This is an automated preliminary assessment. Please contact us for detailed underwriting."""
+*This is an automated preliminary assessment. For detailed underwriting, please contact our loan officers.*"""
     
     def _generate_document_request_response(self, analysis_result: Dict) -> str:
         """Generate response when requesting additional documents"""
         missing_items = analysis_result.get('missing_items', 'Additional documents')
+        borrower_name = analysis_result.get('borrower_name', 'Borrower')
         
-        return f"""Thank you for the documents provided.
+        # Extract key facts from analysis
+        key_facts = self._extract_key_facts_from_analysis(analysis_result)
+        
+        return f"""Hi {borrower_name},
 
-ADDITIONAL DOCUMENTS NEEDED:
+Great progress! We're almost there. Here's what we have so far:
+
+**KEY FACTS:**
+{key_facts}
+
+**DOCUMENTS RECEIVED:**
+{', '.join(analysis_result.get('documents_received', ['None specified']))}
+
+**FINAL DOCUMENTS NEEDED:**
 {missing_items}
 
-Please reply to this email with the requested documents attached.
+**QUICK COMPLETION:**
+1. Provide the missing documents above
+2. Reply to this email with all documents attached
+3. We'll give you a decision in 5 minutes
+
+**Your dream home is waiting - let's complete this together!**
 
 ---
-This is an automated preliminary assessment. Please contact us for detailed underwriting."""
+*This is an automated preliminary assessment. For detailed underwriting, please contact our loan officers.*"""
     
     def _generate_underwriting_response(self, analysis_result: Dict) -> str:
         """Generate response for underwriting analysis"""
         key_findings = analysis_result.get('key_findings', 'Processing documents')
         qualification_status = analysis_result.get('qualification_status', 'Under review')
         next_steps = analysis_result.get('next_steps', 'Awaiting additional documents')
+        borrower_name = analysis_result.get('borrower_name', 'Borrower')
         
-        return f"""DOCUMENT ANALYSIS COMPLETE
+        # Extract key facts from analysis
+        key_facts = self._extract_key_facts_from_analysis(analysis_result)
+        
+        # Determine if we have all documents
+        all_docs_received = len(analysis_result.get('documents_received', [])) >= 6  # Assuming 6 core documents
+        
+        if all_docs_received:
+            return self._generate_complete_analysis_response(analysis_result, key_facts, qualification_status, key_findings)
+        else:
+            return self._generate_partial_analysis_response(analysis_result, key_facts, qualification_status, key_findings, next_steps)
+    
+    def _generate_complete_analysis_response(self, analysis_result: Dict, key_facts: str, qualification_status: str, key_findings: str) -> str:
+        """Generate response when all documents are received"""
+        borrower_name = analysis_result.get('borrower_name', 'Borrower')
+        
+        # Determine if this is a success or failure
+        is_success = any(word in qualification_status.lower() for word in ['approved', 'qualify', 'eligible', 'strong'])
+        is_failure = any(word in qualification_status.lower() for word in ['denied', 'not qualify', 'ineligible', 'insufficient'])
+        
+        if is_success:
+            return f"""Hi {borrower_name},
 
-QUALIFICATION STATUS:
+**PRELIMINARY APPROVAL**
+
+**LOAN SUMMARY:**
+{key_facts}
+
+**QUALIFICATION STATUS:**
 {qualification_status}
 
-KEY FINDINGS:
+**KEY FINDINGS:**
 {key_findings}
 
-NEXT STEPS:
-{next_steps}
+**NEXT STEPS:**
+1. A loan officer will contact you within 5 minutes
+2. Complete the formal application process
+3. Schedule property appraisal
+4. Finalize loan terms and closing
+
+**Congratulations!** Your application looks strong and we're ready to move forward.
+
+**Your new home is within reach - let's make it happen!**
 
 ---
-This is an automated preliminary assessment. Please contact us for detailed underwriting."""
+*This is a preliminary approval. Final terms subject to full underwriting review.*"""
+        
+        elif is_failure:
+            return f"""Hi {borrower_name},
+
+**PRELIMINARY DECISION**
+
+**LOAN SUMMARY:**
+{key_facts}
+
+**QUALIFICATION STATUS:**
+{qualification_status}
+
+**KEY FINDINGS:**
+{key_findings}
+
+**NEXT STEPS:**
+1. A loan officer will contact you within 5 minutes to discuss alternatives
+2. We may be able to help with different loan programs
+3. Consider addressing the issues identified above
+
+**Don't give up on your dream home!** We're here to help find a solution that works for you.
+
+---
+*This is a preliminary decision. Please contact us to discuss options.*"""
+        
+        else:
+            return f"""Hi {borrower_name},
+
+**ANALYSIS COMPLETE**
+
+**LOAN SUMMARY:**
+{key_facts}
+
+**QUALIFICATION STATUS:**
+{qualification_status}
+
+**KEY FINDINGS:**
+{key_findings}
+
+**NEXT STEPS:**
+1. A loan officer will review your application within 5 minutes
+2. You'll receive a detailed decision shortly
+3. We may request additional information
+
+**Stay tuned - we're working fast to get you into your home!**
+
+---
+*This is a preliminary assessment. Final decision pending full review.*"""
+    
+    def _generate_partial_analysis_response(self, analysis_result: Dict, key_facts: str, qualification_status: str, key_findings: str, next_steps: str) -> str:
+        """Generate response when some documents are still missing"""
+        borrower_name = analysis_result.get('borrower_name', 'Borrower')
+        
+        return f"""Hi {borrower_name},
+
+**PARTIAL ANALYSIS COMPLETE**
+
+**LOAN SUMMARY:**
+{key_facts}
+
+**CURRENT STATUS:**
+{qualification_status}
+
+**KEY FINDINGS:**
+{key_findings}
+
+**MISSING DOCUMENTS:**
+{next_steps}
+
+**QUICK COMPLETION:**
+1. Provide the missing documents above
+2. Reply to this email with all documents attached
+3. We'll complete the full analysis in 5 minutes
+
+**Your dream home is waiting - let's complete this together!**
+
+---
+*This is a partial assessment. Complete analysis pending missing documents.*"""
     
     def _generate_generic_response(self, analysis_result: Dict) -> str:
         """Generate generic response"""
@@ -280,9 +421,69 @@ This is an automated preliminary assessment. Please contact us for detailed unde
                 document_types.append('w2')
             elif any(word in filename for word in ['tax', 'return', '1040']):
                 document_types.append('tax_return')
-            elif any(word in filename for word in ['license', 'id', 'passport']):
-                document_types.append('identification')
+            elif any(word in filename for word in ['funds', 'down', 'payment', 'proof']):
+                document_types.append('proof_of_funds')
             else:
                 document_types.append('other')
         
-        return document_types 
+        return document_types
+    
+    def _extract_key_facts_from_analysis(self, analysis_result: Dict) -> str:
+        """Extract and format key facts from analysis result"""
+        facts = []
+        
+        # Basic loan info
+        if analysis_result.get('loan_amount'):
+            try:
+                loan_amount = int(analysis_result['loan_amount'])
+                facts.append(f"• Loan Amount: ${loan_amount:,}")
+            except (ValueError, TypeError):
+                facts.append(f"• Loan Amount: {analysis_result['loan_amount']}")
+        
+        if analysis_result.get('property_value'):
+            try:
+                property_value = int(analysis_result['property_value'])
+                facts.append(f"• Property Value: ${property_value:,}")
+            except (ValueError, TypeError):
+                facts.append(f"• Property Value: {analysis_result['property_value']}")
+        
+        if analysis_result.get('credit_score'):
+            facts.append(f"• Credit Score: {analysis_result['credit_score']}")
+        
+        if analysis_result.get('property_type'):
+            facts.append(f"• Property Type: {analysis_result['property_type']}")
+        
+        if analysis_result.get('property_location'):
+            facts.append(f"• Location: {analysis_result['property_location']}")
+        
+        # Income info
+        if analysis_result.get('monthly_income'):
+            try:
+                monthly_income = int(analysis_result['monthly_income'])
+                facts.append(f"• Monthly Income: ${monthly_income:,}")
+            except (ValueError, TypeError):
+                facts.append(f"• Monthly Income: {analysis_result['monthly_income']}")
+        
+        if analysis_result.get('employer'):
+            facts.append(f"• Employer: {analysis_result['employer']}")
+        
+        # Asset info
+        if analysis_result.get('bank_balance'):
+            try:
+                bank_balance = int(analysis_result['bank_balance'])
+                facts.append(f"• Bank Balance: ${bank_balance:,}")
+            except (ValueError, TypeError):
+                facts.append(f"• Bank Balance: {analysis_result['bank_balance']}")
+        
+        # Down payment
+        if analysis_result.get('down_payment'):
+            try:
+                down_payment = int(analysis_result['down_payment'])
+                facts.append(f"• Down Payment: ${down_payment:,}")
+            except (ValueError, TypeError):
+                facts.append(f"• Down Payment: {analysis_result['down_payment']}")
+        
+        if not facts:
+            return "• Basic loan information provided"
+        
+        return "\n".join(facts) 
