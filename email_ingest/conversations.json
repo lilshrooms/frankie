@@ -102,14 +102,16 @@
     "loan_file_id": null,
     "gmail_thread_id": "198385f11f07a98f",
     "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
-    "conversation_state": "waiting_docs",
-    "conversation_summary": "**QUALIFICATION STATUS:** Pending - Significant Discrepancies and Missing Information\n\n**KEY FINDINGS (only stated facts):**\n\n*   **Borrower Name:** Xinwei Tan\n*   **Loan Amount Requested:** $400,000\n*   **Purchase Price:** $500,000\n*   **Property Type:** Condo\n*   **Property Location:** NYC\n*   **Credit Score (Stated by borrower):** 780\n*   **Assets:** A bank statement for the period of 04/18/2020 - 05/15/2020 shows an ending balance of $651.23.\n*   **Income/Employment:** A paystub dated 09/30/...",
+    "conversation_state": "underwriting",
+    "conversation_summary": "**QUALIFICATION STATUS:** Pending - Significant Discrepancies and Missing Information\n\n**KEY FINDINGS (only stated facts):**\n\n*   **Borrower Name:** Xinwei Tan\n*   **Loan Amount Requested:** $400,000\n*   **Purchase Price:** $500,000\n*   **Property Type:** Condo\n*   **Property Location:** NYC\n*   **Credit Score (Stated by borrower):** 780\n*   **Assets (from bank statement dated 04/18/20 - 05/15/20):**\n    *   Account Holder: XINWEI TAN\n    *   Account Holder Address: 1525 9TH AVE APT 3207 SEATTLE...",
     "requested_documents": [],
     "received_documents": [
       "bank_statement",
+      "pay_stub",
+      "bank_statement",
       "pay_stub"
     ],
-    "conversation_turn": 2,
+    "conversation_turn": 3,
     "previous_analyses": []
   },
   "1983855a4b09bdb0": {
@@ -203,6 +205,28 @@
   "19837cad388f8267": {
     "loan_file_id": null,
     "gmail_thread_id": "19837cad388f8267",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19838c29b220df96": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19838c29b220df96",
+    "borrower_email": "\"Vamsikrishna Gowripattapu (xWF)\" <gowripattapu@xwf.google.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19838b866b9dadc5": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19838b866b9dadc5",
     "borrower_email": "ian@yourhomebase.co",
     "conversation_state": "initial_request",
     "conversation_summary": "",

@@ -9,6 +9,63 @@ from gemini_analyzer import analyze_with_gemini
 import yaml
 from rag_pipeline import build_rag_index, retrieve_relevant_chunks, prepare_gemini_prompt
 import re
+from typing import Dict
+
+def _parse_analysis_for_response(analysis: str, gemini_fields: Dict) -> Dict:
+    """Parse Gemini analysis to extract structured information for response generation"""
+    analysis_data = {
+        'key_findings': analysis,
+        'qualification_status': 'Under review',
+        'missing_items': 'Additional documents may be required',
+        'next_steps': 'Please provide requested documents'
+    }
+    
+    # Try to extract qualification status
+    if 'QUALIFICATION STATUS' in analysis:
+        lines = analysis.split('\n')
+        for i, line in enumerate(lines):
+            if 'QUALIFICATION STATUS' in line and i + 1 < len(lines):
+                status = lines[i + 1].strip()
+                if status and not status.startswith('**'):
+                    analysis_data['qualification_status'] = status
+                    break
+    
+    # Try to extract missing items
+    if 'MISSING ITEMS' in analysis:
+        missing_start = analysis.find('MISSING ITEMS')
+        missing_end = analysis.find('NEXT STEPS') if 'NEXT STEPS' in analysis else len(analysis)
+        missing_section = analysis[missing_start:missing_end]
+        
+        # Extract bullet points
+        missing_items = []
+        for line in missing_section.split('\n'):
+            line = line.strip()
+            if line.startswith('*') or line.startswith('-') or line.startswith('•'):
+                item = line.lstrip('* - •').strip()
+                if item and len(item) > 5:
+                    missing_items.append(item)
+        
+        if missing_items:
+            analysis_data['missing_items'] = '\n'.join(f"• {item}" for item in missing_items)
+    
+    # Try to extract next steps
+    if 'NEXT STEPS' in analysis:
+        next_start = analysis.find('NEXT STEPS')
+        next_section = analysis[next_start:]
+        
+        # Extract numbered steps
+        next_steps = []
+        for line in next_section.split('\n'):
+            line = line.strip()
+            if line.startswith('1.') or line.startswith('2.') or line.startswith('3.'):
+                step = line.split('.', 1)[1].strip() if '.' in line else line
+                if step and len(step) > 5:
+                    next_steps.append(step)
+        
+        if next_steps:
+            analysis_data['next_steps'] = '\n'.join(f"{i+1}. {step}" for i, step in enumerate(next_steps))
+    
+    return analysis_data
 
 # Load environment variables
 load_dotenv()
@@ -468,14 +525,36 @@ if __name__ == '__main__':
         )
         print(f"Gemini Analysis: {analysis}")
         
+        # Extract borrower name from email or analysis
+        borrower_name = gemini_fields.get('borrower_name', 'Borrower')
+        if not borrower_name or borrower_name == 'None':
+            # Try to extract from email address
+            from_email = email_data['from']
+            if '<' in from_email and '>' in from_email:
+                borrower_name = from_email.split('<')[0].strip()
+            else:
+                borrower_name = from_email.split('@')[0].replace('.', ' ').title()
+        
+        # Parse analysis to extract key information
+        analysis_data = _parse_analysis_for_response(analysis, gemini_fields)
+        
         # Generate response based on conversation state
         response = conversation_manager.generate_response_based_on_state(conversation_context, {
+            'borrower_name': borrower_name,
             'loan_amount': gemini_fields.get('loan_amount', 'N/A'),
             'property_value': gemini_fields.get('property_value', 'N/A'),
             'credit_score': gemini_fields.get('credit_score', 'N/A'),
-            'key_findings': analysis,
-            'missing_items': 'Additional documents may be required',
-            'next_steps': 'Please provide requested documents'
+            'property_type': gemini_fields.get('property_type', 'N/A'),
+            'property_location': gemini_fields.get('property_location', 'N/A'),
+            'monthly_income': gemini_fields.get('monthly_income', 'N/A'),
+            'employer': gemini_fields.get('employer', 'N/A'),
+            'bank_balance': gemini_fields.get('bank_balance', 'N/A'),
+            'down_payment': gemini_fields.get('down_payment', 'N/A'),
+            'key_findings': analysis_data.get('key_findings', analysis),
+            'qualification_status': analysis_data.get('qualification_status', 'Under review'),
+            'missing_items': analysis_data.get('missing_items', 'Additional documents may be required'),
+            'next_steps': analysis_data.get('next_steps', 'Please provide requested documents'),
+            'documents_received': new_document_types
         })
         
         # Update conversation state
