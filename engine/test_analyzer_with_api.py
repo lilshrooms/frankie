@@ -8,7 +8,7 @@ import os
 from analyzer import analyze_quote, generate_quote_summary
 from quote_engine import quote_rate
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ingest'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'rate_ingest'))
 from gemini_rate_integration import GeminiRateIntegration
 
 

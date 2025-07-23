@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 from optimizer import optimize_scenario
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ingest'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'rate_ingest'))
 from gemini_rate_integration import GeminiRateIntegration
 import json
 

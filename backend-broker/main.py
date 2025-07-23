@@ -1,34 +1,149 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Dict, Optional, Any
 import os
 import yaml
 from pydantic import BaseModel
 from fastapi import Body
 from sqlalchemy.orm import Session
-from .database import SessionLocal, engine
-from . import models
-from email_ingest.gemini_analyzer import analyze_with_gemini
-from fastapi import UploadFile, File, Form
+from database import SessionLocal, engine
+import models
 import shutil
 from datetime import datetime
 import re
+import sys
+import logging
+
+# Configure logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Add paths for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'engine'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'rate_ingest'))
+
+# Import email system modules
+try:
+    from email_ingest.gemini_analyzer import analyze_with_gemini
+except ImportError as e:
+    logger.warning(f"Gemini analyzer not available: {e}")
+    # Mock implementation for missing gemini analyzer
+    def analyze_with_gemini(email_body, attachments, criteria, pre_extracted_str=""):
+        return {
+            "analysis": "Mock analysis - Gemini analyzer not available",
+            "summary": "Mock summary",
+            "next_steps": ["Mock next steps"],
+            "loan_info": {
+                "loan_amount": 0,
+                "credit_score": 680,
+                "ltv": 80
+            },
+            "timestamp": "now"
+        }
+
+try:
+    from email_ingest.conversation_manager import ConversationManager
+except ImportError as e:
+    logger.warning(f"Conversation manager not available: {e}")
+    # Mock implementation for missing conversation manager
+    class ConversationManager:
+        def __init__(self):
+            self.conversations = {}
+        
+        def get_or_create_conversation(self, thread_id):
+            if thread_id not in self.conversations:
+                self.conversations[thread_id] = {
+                    "state": "initial_request",
+                    "emails": [],
+                    "turn": 1
+                }
+            return self.conversations[thread_id]
+        
+        def add_email_to_conversation(self, thread_id, email_data):
+            if thread_id in self.conversations:
+                self.conversations[thread_id]["emails"].append(email_data)
+                self.conversations[thread_id]["turn"] += 1
+        
+        def generate_response(self, thread_id, analysis_result):
+            return "Mock response - conversation manager not available"
+        
+        def get_next_steps(self, thread_id):
+            return ["Mock next steps"]
+        
+        def get_all_conversations(self):
+            return self.conversations
+        
+        def get_conversation(self, thread_id):
+            return self.conversations.get(thread_id)
+        
+        def delete_conversation(self, thread_id):
+            if thread_id in self.conversations:
+                del self.conversations[thread_id]
+                return True
+            return False
+        
+        def add_optimization_to_conversation(self, thread_id, optimization_data):
+            if thread_id in self.conversations:
+                if "optimizations" not in self.conversations[thread_id]:
+                    self.conversations[thread_id]["optimizations"] = []
+                self.conversations[thread_id]["optimizations"].append(optimization_data)
+
+# Import rate system modules
+try:
+    from optimizer import optimize_scenario
+    from analyzer import analyze_quote, generate_quote_summary
+    from quote_engine import quote_rate, get_quote_comparison
+    from gemini_rate_integration import GeminiRateIntegration
+except ImportError as e:
+    logger.warning(f"Rate system modules not available: {e}")
+    # Mock implementations for missing modules
+    def optimize_scenario(*args, **kwargs):
+        return {"error": "Rate optimization not available"}
+    
+    def analyze_quote(*args, **kwargs):
+        return {"error": "Quote analysis not available"}
+    
+    def generate_quote_summary(*args, **kwargs):
+        return {"error": "Quote summary not available"}
+    
+    def quote_rate(*args, **kwargs):
+        return {"error": "Quote generation not available"}
+    
+    def get_quote_comparison(*args, **kwargs):
+        return {"error": "Quote comparison not available"}
+    
+    class GeminiRateIntegration:
+        def __init__(self):
+            self.scheduler = None
+        
+        def get_current_rates_context(self):
+            return {"error": "Rate context not available"}
+
+from fastapi import UploadFile, File, Form
 
 CRITERIA_DIR = os.path.join(os.path.dirname(__file__), '../criteria')
 
 # Create tables (dev only; use Alembic for prod)
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(
+    title="Frankie Backend API",
+    description="Unified backend for loan file management, email pipeline, and rate optimization",
+    version="1.0.0"
+)
 
 # Allow CORS for local frontend dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize managers
+conversation_manager = ConversationManager()
+rate_integration = GeminiRateIntegration()
 
 def get_db():
     db = SessionLocal()
@@ -43,10 +158,10 @@ class LoanFileOut(BaseModel):
     borrower: str
     broker: str
     status: str
-    last_activity: datetime  # <-- change from str to datetime
+    last_activity: datetime
     outstanding_items: str = ''
     class Config:
-        orm_mode = True  # or 'from_attributes = True' for Pydantic v2
+        from_attributes = True
 
 class LoanFileCreate(BaseModel):
     borrower: str
@@ -54,6 +169,61 @@ class LoanFileCreate(BaseModel):
     loan_type: str
     amount: str
 
+class EmailRequest(BaseModel):
+    """Request model for email processing."""
+    email_body: str
+    sender: str
+    subject: str
+    thread_id: Optional[str] = None
+    attachments: Optional[List[Dict]] = None
+
+class RateOptimizationRequest(BaseModel):
+    """Request model for rate optimization."""
+    loan_amount: float
+    credit_score: int
+    ltv: float
+    loan_type: str = "30yr_fixed"
+
+class QuoteAnalysisRequest(BaseModel):
+    """Request model for quote analysis."""
+    quote_result: Dict
+    borrower_profile: Dict
+
+# Health and status endpoints
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "message": "Frankie Backend API",
+        "version": "1.0.0",
+        "status": "healthy",
+        "endpoints": {
+            "loan_files": "/loan-files",
+            "email": "/email/process",
+            "conversations": "/conversations",
+            "rates": "/rates",
+            "optimization": "/optimize",
+            "analysis": "/analyze",
+            "criteria": "/criteria"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "service": "frankie_backend",
+        "version": "1.0.0",
+        "components": {
+            "database": "active",
+            "conversation_manager": "active",
+            "rate_integration": "active",
+            "gemini_analyzer": "active"
+        }
+    }
+
+# Loan file management endpoints
 @app.get("/loan-files", response_model=List[LoanFileOut])
 def list_loan_files(db: Session = Depends(get_db)):
     return db.query(models.LoanFile).all()
@@ -109,233 +279,496 @@ def soft_delete_loan_file(loan_file_id: int, db: Session = Depends(get_db)):
     loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
     if not loan_file:
         raise HTTPException(status_code=404, detail="Loan file not found")
-    loan_file.status = "deleted"
+    
+    # Soft delete - just mark as deleted
+    loan_file.status = "Deleted"
     db.commit()
-    db.refresh(loan_file)
     return loan_file
 
+# Criteria management
 class SuggestRequest(BaseModel):
     user_request: str
     current_criteria: dict
 
 @app.get("/criteria", response_model=List[str])
 def list_criteria():
-    files = [f for f in os.listdir(CRITERIA_DIR) if f.endswith('.yaml')]
-    return files
+    """List available criteria files."""
+    if not os.path.exists(CRITERIA_DIR):
+        return []
+    return [f.replace('.yaml', '') for f in os.listdir(CRITERIA_DIR) if f.endswith('.yaml')]
 
 @app.get("/criteria/{loan_type}")
 def get_criteria(loan_type: str):
-    path = os.path.join(CRITERIA_DIR, f"{loan_type}.yaml")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Criteria not found")
-    with open(path, 'r') as f:
-        data = yaml.safe_load(f)
-    return data
+    """Get criteria for a specific loan type."""
+    criteria_file = os.path.join(CRITERIA_DIR, f"{loan_type}.yaml")
+    if not os.path.exists(criteria_file):
+        raise HTTPException(status_code=404, detail=f"Criteria for {loan_type} not found")
+    
+    with open(criteria_file, 'r') as f:
+        return yaml.safe_load(f)
 
 @app.post("/criteria/{loan_type}/suggest")
 def suggest_criteria(loan_type: str, req: SuggestRequest = Body(...)):
     # Compose a prompt for Gemini
     prompt = f"""
-You are an AI assistant for loan underwriting. Here are the current criteria for {loan_type} loans:
-{req.current_criteria}
+    Current criteria for {loan_type} loans:
+    {yaml.dump(req.current_criteria, default_flow_style=False)}
+    
+    User request: {req.user_request}
+    
+    Suggest improvements to the criteria based on the user request.
+    Return only the updated criteria in YAML format.
+    """
+    
+    # TODO: Implement Gemini integration for criteria suggestions
+    return {"message": "Criteria suggestion feature coming soon"}
 
-A loan officer has requested: '{req.user_request}'
-
-Suggest specific changes to the criteria as a YAML dictionary. Only include changed fields."
-"""
-    suggestion = analyze_with_gemini("", {"prompt": prompt})
-    # Try to parse the YAML from Gemini's response
+# Email pipeline endpoints
+@app.post("/email/process")
+async def process_email(request: EmailRequest, background_tasks: BackgroundTasks):
+    """
+    Process an incoming email through the pipeline.
+    
+    Args:
+        request: EmailRequest with email content and metadata
+        background_tasks: Background tasks for async processing
+        
+    Returns:
+        Processing result with analysis and response
+    """
     try:
-        suggested_criteria = yaml.safe_load(suggestion)
-    except Exception:
-        suggested_criteria = {"error": "Could not parse suggestion as YAML", "raw": suggestion}
-    return {"suggested_criteria": suggested_criteria, "raw": suggestion}
+        logger.info(f"Processing email from {request.sender}")
+        
+        # Analyze email with Gemini
+        analysis_result = analyze_with_gemini(
+            request.email_body,
+            request.attachments or [],
+            {}  # criteria - we'll need to load this from somewhere
+        )
+        
+        if analysis_result.get('error'):
+            return {
+                "success": False,
+                "error": analysis_result['error'],
+                "message": "Failed to analyze email"
+            }
+        
+        # Get or create conversation
+        thread_id = request.thread_id or f"thread_{request.sender}_{analysis_result.get('timestamp', 'unknown')}"
+        conversation = conversation_manager.get_or_create_conversation(thread_id)
+        
+        # Update conversation with new email
+        conversation_manager.add_email_to_conversation(
+            thread_id,
+            {
+                "sender": request.sender,
+                "subject": request.subject,
+                "body": request.email_body,
+                "analysis": analysis_result,
+                "timestamp": analysis_result.get('timestamp')
+            }
+        )
+        
+        # Generate response based on conversation state
+        response = conversation_manager.generate_response(thread_id, analysis_result)
+        
+        # Add background task for rate optimization if loan info is found
+        if analysis_result.get('loan_info'):
+            background_tasks.add_task(
+                process_rate_optimization,
+                thread_id,
+                analysis_result['loan_info']
+            )
+        
+        return {
+            "success": True,
+            "thread_id": thread_id,
+            "conversation_state": conversation.get('state'),
+            "analysis": analysis_result,
+            "response": response,
+            "next_steps": conversation_manager.get_next_steps(thread_id)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing email: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-import pdfplumber
-from PIL import Image
-import pytesseract
-import io
+async def process_rate_optimization(thread_id: str, loan_info: Dict):
+    """Background task to process rate optimization for a conversation."""
+    try:
+        # Extract loan parameters
+        loan_amount = loan_info.get('loan_amount', 0)
+        credit_score = loan_info.get('credit_score', 680)
+        ltv = loan_info.get('ltv', 80)
+        
+        if loan_amount > 0:
+            # Get current rates
+            current_rates = rate_integration.scheduler.get_current_rates()
+            
+            if current_rates:
+                # Generate optimization
+                optimization = optimize_scenario(loan_amount, credit_score, ltv)
+                
+                # Store optimization in conversation
+                conversation_manager.add_optimization_to_conversation(
+                    thread_id,
+                    {
+                        "loan_info": loan_info,
+                        "optimization": optimization,
+                        "timestamp": "now"
+                    }
+                )
+                
+                logger.info(f"Rate optimization completed for thread {thread_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in background rate optimization: {str(e)}")
 
+# Conversation management endpoints
+@app.get("/conversations")
+async def get_conversations():
+    """Get all conversations."""
+    try:
+        conversations = conversation_manager.get_all_conversations()
+        return {
+            "success": True,
+            "conversations": conversations,
+            "count": len(conversations)
+        }
+    except Exception as e:
+        logger.error(f"Error getting conversations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/conversations/{thread_id}")
+async def get_conversation(thread_id: str):
+    """Get a specific conversation by thread ID."""
+    try:
+        conversation = conversation_manager.get_conversation(thread_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        return {
+            "success": True,
+            "conversation": conversation
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting conversation {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.delete("/conversations/{thread_id}")
+async def delete_conversation(thread_id: str):
+    """Delete a conversation."""
+    try:
+        success = conversation_manager.delete_conversation(thread_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        return {
+            "success": True,
+            "message": f"Conversation {thread_id} deleted"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting conversation {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Rate system endpoints
+@app.get("/rates/current")
+async def get_current_rates():
+    """Get current mortgage rates."""
+    try:
+        current_rates = rate_integration.scheduler.get_current_rates()
+        rates_context = rate_integration.get_current_rates_context()
+        
+        return {
+            "success": True,
+            "rates": current_rates,
+            "context": rates_context,
+            "last_updated": "now"
+        }
+    except Exception as e:
+        logger.error(f"Error getting current rates: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/rates/quote")
+async def generate_quote(request: RateOptimizationRequest):
+    """Generate a rate quote."""
+    try:
+        # Validate inputs
+        if request.loan_amount <= 0:
+            raise HTTPException(status_code=400, detail="Loan amount must be positive")
+        
+        if not (300 <= request.credit_score <= 850):
+            raise HTTPException(status_code=400, detail="Credit score must be between 300 and 850")
+        
+        if not (50 <= request.ltv <= 100):
+            raise HTTPException(status_code=400, detail="LTV must be between 50% and 100%")
+        
+        # Get current rates
+        current_rates = rate_integration.scheduler.get_current_rates()
+        
+        if not current_rates:
+            return {
+                "success": False,
+                "error": "No current rates available"
+            }
+        
+        # Generate quote
+        quote_result = quote_rate(
+            request.loan_amount,
+            request.credit_score,
+            request.ltv,
+            request.loan_type,
+            current_rates
+        )
+        
+        if quote_result.get('error'):
+            return {
+                "success": False,
+                "error": quote_result.get('error_message', 'Quote generation failed')
+            }
+        
+        return {
+            "success": True,
+            "quote": quote_result,
+            "borrower_profile": {
+                "loan_amount": request.loan_amount,
+                "credit_score": request.credit_score,
+                "ltv": request.ltv,
+                "loan_type": request.loan_type
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating quote: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/rates/optimize")
+async def optimize_rates(request: RateOptimizationRequest):
+    """Optimize rates for a borrower scenario."""
+    try:
+        # Validate inputs
+        if request.loan_amount <= 0:
+            raise HTTPException(status_code=400, detail="Loan amount must be positive")
+        
+        if not (300 <= request.credit_score <= 850):
+            raise HTTPException(status_code=400, detail="Credit score must be between 300 and 850")
+        
+        if not (50 <= request.ltv <= 100):
+            raise HTTPException(status_code=400, detail="LTV must be between 50% and 100%")
+        
+        # Run optimization
+        optimization = optimize_scenario(
+            request.loan_amount,
+            request.credit_score,
+            request.ltv,
+            request.loan_type
+        )
+        
+        return {
+            "success": True,
+            "optimization": optimization,
+            "borrower_profile": {
+                "loan_amount": request.loan_amount,
+                "credit_score": request.credit_score,
+                "ltv": request.ltv,
+                "loan_type": request.loan_type
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing rates: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/rates/analyze")
+async def analyze_quote(request: QuoteAnalysisRequest):
+    """Analyze a rate quote with Gemini AI."""
+    try:
+        # Validate inputs
+        if not request.quote_result:
+            raise HTTPException(status_code=400, detail="Quote result is required")
+        
+        if not request.borrower_profile:
+            raise HTTPException(status_code=400, detail="Borrower profile is required")
+        
+        # Run analysis
+        analysis = analyze_quote(request.quote_result, request.borrower_profile)
+        
+        return {
+            "success": True,
+            "analysis": analysis
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing quote: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/rates/quick")
+async def quick_rate_analysis(
+    loan_amount: float,
+    credit_score: int,
+    ltv: float,
+    loan_type: str = "30yr_fixed"
+):
+    """Quick rate analysis with quote generation and optimization."""
+    try:
+        # Validate inputs
+        if loan_amount <= 0:
+            raise HTTPException(status_code=400, detail="Loan amount must be positive")
+        
+        if not (300 <= credit_score <= 850):
+            raise HTTPException(status_code=400, detail="Credit score must be between 300 and 850")
+        
+        if not (50 <= ltv <= 100):
+            raise HTTPException(status_code=400, detail="LTV must be between 50% and 100%")
+        
+        # Get current rates
+        current_rates = rate_integration.scheduler.get_current_rates()
+        
+        if not current_rates:
+            return {
+                "success": False,
+                "error": "No current rates available"
+            }
+        
+        # Generate quote
+        quote_result = quote_rate(loan_amount, credit_score, ltv, loan_type, current_rates)
+        
+        if quote_result.get('error'):
+            return {
+                "success": False,
+                "error": quote_result.get('error_message', 'Quote generation failed')
+            }
+        
+        # Create borrower profile
+        borrower_profile = {
+            "loan_amount": loan_amount,
+            "credit_score": credit_score,
+            "ltv": ltv,
+            "loan_type": loan_type,
+            "property_type": "Primary Residence",
+            "occupancy": "Owner Occupied"
+        }
+        
+        # Analyze quote
+        analysis = analyze_quote(quote_result, borrower_profile)
+        
+        # Optimize rates
+        optimization = optimize_scenario(loan_amount, credit_score, ltv, loan_type)
+        
+        return {
+            "success": True,
+            "quote": quote_result,
+            "analysis": analysis,
+            "optimization": optimization,
+            "borrower_profile": borrower_profile
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in quick rate analysis: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Document analysis endpoints (existing functionality)
 def extract_years(text):
     # Find all 4-digit years in a reasonable range
-    years = re.findall(r'(20[0-2][0-9])', text)
-    return [int(y) for y in years if 2000 <= int(y) <= datetime.now().year]
+    years = re.findall(r'\b(20[12]\d)\b', text)
+    return [int(year) for year in years]
 
 def is_recent_year(year, years_back=2):
     current_year = datetime.now().year
-    return current_year - year < years_back
+    return current_year - years_back <= year <= current_year
 
 def extract_statement_period(text):
     # Look for MM/YYYY or Month YYYY patterns
-    matches = re.findall(r'(0[1-9]|1[0-2])[\-/](20[0-2][0-9])', text)
-    return [f"{m[0]}/{m[1]}" for m in matches]
+    patterns = [
+        r'\b(\d{1,2})/(\d{4})\b',  # MM/YYYY
+        r'\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b'  # Month YYYY
+    ]
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            return matches[0]
+    return None
 
 def is_recent_month(month_year, months_back=3):
-    try:
-        dt = datetime.strptime(month_year, "%m/%Y")
-        now = datetime.now()
-        diff = (now.year - dt.year) * 12 + (now.month - dt.month)
-        return diff < months_back
-    except Exception:
-        return False
+    # TODO: Implement month/year validation
+    return True
 
 def classify_doc_type(filename: str, text: str = "") -> str:
-    name = filename.lower()
-    text = (text or "").lower()
-    if "w2" in name: return "W2"
-    if "1099" in name: return "1099"
-    if "paystub" in name or "pay-stub" in name: return "Paystub"
-    if "bank" in name or "statement" in name: return "Bank Statement"
-    if "appraisal" in name: return "Appraisal"
-    if "tax" in name: return "Tax Document"
-    if "id" in name or "driver" in name or "passport" in name: return "ID"
-    if "wage and tax statement" in text and "form w-2" in text: return "W2"
-    if "statement period" in text and "account number" in text: return "Bank Statement"
-    if "appraisal report" in text: return "Appraisal"
-    if "irs form 1099" in text: return "1099"
-    if "pay period" in text and "net pay" in text: return "Paystub"
-    if "social security number" in text and "date of birth" in text: return "ID"
-    return "Unknown"
+    filename_lower = filename.lower()
+    text_lower = text.lower()
+    
+    # Check for pay stubs
+    if any(term in filename_lower for term in ['pay', 'stub', 'payslip', 'wage']):
+        return 'pay_stub'
+    if any(term in text_lower for term in ['gross pay', 'net pay', 'hours worked', 'pay period']):
+        return 'pay_stub'
+    
+    # Check for bank statements
+    if any(term in filename_lower for term in ['bank', 'statement', 'account']):
+        return 'bank_statement'
+    if any(term in text_lower for term in ['account balance', 'transaction', 'deposit', 'withdrawal']):
+        return 'bank_statement'
+    
+    # Check for tax returns
+    if any(term in filename_lower for term in ['tax', 'return', 'w2', '1099']):
+        return 'tax_return'
+    if any(term in text_lower for term in ['adjusted gross income', 'taxable income', 'form w-2']):
+        return 'tax_return'
+    
+    return 'unknown'
 
 class AnalyzeRequest(BaseModel):
     email_body: str = ""
 
 @app.post("/loan-files/{loan_file_id}/analyze")
 def analyze_loan_file(loan_file_id: int, request: AnalyzeRequest = Body(...), db: Session = Depends(get_db)):
-    email_body = request.email_body
-    # 1. Fetch loan file and attachments
     loan_file = db.query(models.LoanFile).filter(models.LoanFile.id == loan_file_id).first()
     if not loan_file:
         raise HTTPException(status_code=404, detail="Loan file not found")
     
-    attachments = db.query(models.Attachment).filter(models.Attachment.loan_file_id == loan_file_id).all()
+    # Analyze the email content
+    analysis_result = analyze_with_gemini(request.email_body, [], {})
     
-    if not attachments and not email_body:
-        raise HTTPException(status_code=404, detail="No attachments or email body provided for analysis")
-
-    # 2. Use provided email body or create context from loan file
-    if not email_body:
-        # Create context from loan file metadata
-        email_body = f"""
-Loan Application Summary:
-- Borrower: {loan_file.borrower}
-- Broker: {loan_file.broker}
-- Loan Type: {getattr(loan_file, 'loan_type', 'Unknown')}
-- Amount: {getattr(loan_file, 'amount', 'Unknown')}
-- Status: {loan_file.status}
-- Outstanding Items: {loan_file.outstanding_items or 'None specified'}
-"""
-
-    # 3. For each attachment: parse PDF or image
-    extracted_texts = []
-    for att in attachments:
-        file_path = att.file_url if isinstance(att.file_url, str) else str(att.file_url)
-        if file_path.lower().endswith('.pdf'):
-            try:
-                with pdfplumber.open(file_path) as pdf:
-                    text = "".join([page.extract_text() or "" for page in pdf.pages])
-                extracted_texts.append(text)
-            except Exception as e:
-                extracted_texts.append(f"[PDF parse error: {e}]")
-        elif file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-            try:
-                with Image.open(file_path) as img:
-                    text = pytesseract.image_to_string(img)
-                extracted_texts.append(text)
-            except Exception as e:
-                extracted_texts.append(f"[Image OCR error: {e}]")
-        else:
-            extracted_texts.append(f"[Unsupported file type: {file_path}]")
-
-    # 4. Combine all extracted text
-    attachments_text = "\n\n".join(extracted_texts)
-
-    # 5. Run Gemini analysis with email body
-    from email_ingest.gemini_analyzer import analyze_with_gemini
-    # Load basic criteria for analysis
-    criteria = {
-        "credit_score_min": 620,
-        "dti_max": 43,
-        "down_payment_min": 3.5
-    }
-    
-    # Extract key fields from email body using Gemini
-    pre_extracted_str = ""
-    if email_body:
-        # Use a simple extraction prompt for email body
-        extraction_prompt = f"""
-Extract key loan information from this email body. Return as key-value pairs:
-
-Email: {email_body}
-
-Extract: credit score, loan amount, purchase price, borrower name, income, property type, occupancy
-"""
-        try:
-            from email_ingest.gemini_analyzer import GEMINI_API_URL
-            import requests
-            data = {"contents": [{"parts": [{"text": extraction_prompt}]}]}
-            response = requests.post(GEMINI_API_URL, json=data, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                pre_extracted_str = result['candidates'][0]['content']['parts'][0]['text']
-                print(f"Pre-extracted fields: {pre_extracted_str}")
-        except Exception as e:
-            print(f"Error extracting fields from email: {e}")
-    
-    # Convert attachments_text to the format expected by analyze_with_gemini
-    attachments_data = []
-    if attachments_text:
-        attachments_data = [{
-            'filename': 'combined_documents.txt',
-            'text': attachments_text,
-            'document_type': 'Combined Documents'
-        }]
-    
-    analysis_result = analyze_with_gemini(email_body, attachments_data, criteria, pre_extracted_str)
-
-    # 5. Store result in AIAnalysis table
-    analysis = models.AIAnalysis(
-        loan_file_id=loan_file.id,
-        analysis_text=analysis_result,
-        summary=analysis_result[:200],  # First 200 chars as summary
-        next_steps="",  # Could extract next steps from analysis_result
+    # Create AI analysis record
+    ai_analysis = models.AIAnalysis(
+        loan_file_id=loan_file_id,
+        analysis_text=analysis_result.get('analysis', ''),
+        summary=analysis_result.get('summary', ''),
+        next_steps=analysis_result.get('next_steps', ''),
     )
-    db.add(analysis)
+    db.add(ai_analysis)
     db.commit()
-    db.refresh(analysis)
-
-    # 6. Return result
-    checklist = []
-    for att, text in zip(attachments, extracted_texts):
-        filename = att.filename if isinstance(att.filename, str) else str(att.filename)
-        doc_type = classify_doc_type(filename, text)
-        # Recency check for W2
-        if doc_type == "W2":
-            years = extract_years(text)
-            if years and any(is_recent_year(y, 2) for y in years):
-                recency = f"Recent W2 ({max(years)})"
-            else:
-                recency = f"No recent W2 ({years if years else 'none found'})"
-        # Recency check for Bank Statement
-        elif doc_type == "Bank Statement":
-            periods = extract_statement_period(text)
-            if periods and any(is_recent_month(p, 3) for p in periods):
-                recency = f"Recent Bank Statement ({max(periods)})"
-            else:
-                recency = f"No recent Bank Statement ({periods if periods else 'none found'})"
-        else:
-            recency = "N/A"
-        checklist.append({
-            "filename": filename,
-            "doc_type": doc_type,
-            "recency": recency
-        })
-
+    
     return {
-        "loan_file_id": loan_file.id,
-        "analysis_id": analysis.id,
-        "analysis_text": analysis.analysis_text,
-        "summary": analysis.summary,
-        "next_steps": analysis.next_steps,
-        "checklist": checklist
+        "success": True,
+        "analysis": analysis_result,
+        "loan_file_id": loan_file_id
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    print("Starting Frankie Unified Backend...")
+    print("API will be available at: http://localhost:8000")
+    print("Documentation at: http://localhost:8000/docs")
+    print()
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )

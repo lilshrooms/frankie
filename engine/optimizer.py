@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 from quote_engine import quote_rate, get_quote_comparison
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ingest'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'rate_ingest'))
 from gemini_rate_integration import GeminiRateIntegration
 
 

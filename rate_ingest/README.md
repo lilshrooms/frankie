@@ -1,6 +1,8 @@
-# Frankie Rate Ingestion System
+# Frankie Rate Ingestion System (rate_ingest)
 
 This system automatically collects, normalizes, and stores mortgage rates for use in Gemini analysis of prospective homeowners.
+
+**Note**: This folder was renamed from `ingest` to `rate_ingest` to distinguish it from `email_ingest` which handles email processing and document parsing.
 
 ## Overview
 

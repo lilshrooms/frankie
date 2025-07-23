@@ -180,7 +180,7 @@ async def quick_analyze(
         from quote_engine import quote_rate
         import sys
         import os
-        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ingest'))
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'rate_ingest'))
         from gemini_rate_integration import GeminiRateIntegration
         
         # Get current rates
