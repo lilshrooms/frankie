@@ -57,8 +57,8 @@ def detect_document_type(filename: str, text: str) -> str:
         return 'bank_statement'
     
     # Pay stub detection
-    if any(word in filename_lower for word in ['pay', 'stub', 'paycheck']) or \
-       any(word in text_lower for word in ['pay period', 'gross pay', 'net pay', 'deductions']):
+    if any(word in filename_lower for word in ['pay', 'stub', 'paycheck', 'payslip', 'salary']) or \
+       any(word in text_lower for word in ['pay period', 'gross pay', 'net pay', 'deductions', 'earnings statement', 'payroll']):
         return 'pay_stub'
     
     # Tax return detection

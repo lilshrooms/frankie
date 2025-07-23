@@ -351,13 +351,19 @@ if __name__ == '__main__':
         # Parse attachments with enhanced parsing for RAG
         parsed_attachments = enhanced_parse_attachments(email_data['attachments'])
         rag_texts = []
+        
+        print(f"Processing {len(parsed_attachments)} attachments:")
         for attachment in parsed_attachments:
+            print(f"  - {attachment['filename']}: {attachment.get('document_type', 'unknown')}")
             if attachment.get('text'):
+                print(f"    Text length: {len(attachment['text'])} characters")
                 rag_texts.append(attachment['text'])
                 # Also add structured data as text for RAG
                 if attachment.get('structured_data'):
                     for key, value in attachment['structured_data'].items():
                         rag_texts.append(f"{key}: {value}")
+            else:
+                print(f"    WARNING: No text extracted from {attachment['filename']}")
         
         if rag_texts:
             # Simple RAG: combine all text and search
