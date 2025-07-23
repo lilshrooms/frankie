@@ -4,10 +4,10 @@ import email
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
-from email_ingest.attachment_parser import parse_attachments
-from email_ingest.gemini_analyzer import analyze_with_gemini
+from attachment_parser import parse_attachments
+from gemini_analyzer import analyze_with_gemini
 import yaml
-from email_ingest.rag_pipeline import build_rag_index, retrieve_relevant_chunks, prepare_gemini_prompt
+from rag_pipeline import build_rag_index, retrieve_relevant_chunks, prepare_gemini_prompt
 import re
 
 # Load environment variables
@@ -62,13 +62,28 @@ def fetch_recent_emails():
         # Get email date
         date_header = next((h['value'] for h in headers if h['name'] == 'Date'), None)
         
-        # FRESH START: Simple email body extraction
+        # FIXED: Handle multipart/alternative structure for email body extraction
         body = ''
         if 'data' in payload.get('body', {}):
             body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
         elif 'parts' in payload:
             for part in payload['parts']:
-                if part['mimeType'] == 'text/plain' and 'data' in part['body']:
+                # Handle multipart/alternative structure
+                if part['mimeType'] == 'multipart/alternative' and 'parts' in part:
+                    for subpart in part['parts']:
+                        if subpart['mimeType'] == 'text/plain' and 'data' in subpart['body']:
+                            body = base64.urlsafe_b64decode(subpart['body']['data']).decode('utf-8')
+                            break
+                        elif subpart['mimeType'] == 'text/html' and 'data' in subpart['body'] and not body:
+                            html_body = base64.urlsafe_b64decode(subpart['body']['data']).decode('utf-8')
+                            import re
+                            body = re.sub(r'<[^>]+>', '', html_body)
+                            body = re.sub(r'\s+', ' ', body).strip()
+                            break
+                    if body:
+                        break
+                # Handle direct text parts
+                elif part['mimeType'] == 'text/plain' and 'data' in part['body']:
                     body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
                     break
                 elif part['mimeType'] == 'text/html' and 'data' in part['body'] and not body:
@@ -233,7 +248,7 @@ Return JSON with ONLY information that is explicitly stated:
 
 If nothing is stated, return empty {{}}.
 '''
-    from email_ingest.gemini_analyzer import GEMINI_API_URL
+    from gemini_analyzer import GEMINI_API_URL
     import os, requests
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
     data = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -356,7 +371,7 @@ This is an automated preliminary assessment. Please contact us for detailed unde
 if __name__ == '__main__':
     emails = fetch_recent_emails()
     # Load criteria (for now, use conventional.yaml)
-    with open('criteria/conventional.yaml', 'r') as f:
+    with open('../criteria/conventional.yaml', 'r') as f:
         criteria = yaml.safe_load(f)
     for email_data in emails:
         print(f"\n---\nChecking email: Subject: {email_data['subject']} | From: {email_data['from']}")
@@ -372,6 +387,15 @@ if __name__ == '__main__':
             continue
         print(f"[PROCESS] Identified as mortgage-related. Proceeding with analysis and response.")
         
+        # FIXED: Check for AI response emails to prevent processing loops
+        email_body = email_data['body'] or ""
+        if ('PRELIMINARY LOAN ASSESSMENT' in email_body or 
+            'QUALIFICATION STATUS' in email_body or
+            'This is an automated preliminary assessment' in email_body):
+            print(f"[SKIP] Email contains AI response content, skipping to prevent processing loop")
+            mark_email_as_read(email_data['id'])
+            continue
+        
         # Additional safety check for email addresses
         from_email = email_data['from'] or ""
         if any(non_mortgage in from_email.lower() for non_mortgage in ['noreply', 'no-reply', 'reddit', 'google', 'yc', 'ycombinator', 'newsletter', 'alert']):
@@ -384,7 +408,7 @@ if __name__ == '__main__':
         
 
         # Build RAG index from attachments using enhanced parsing
-        from email_ingest.attachment_parser import parse_attachments as enhanced_parse_attachments
+        from attachment_parser import parse_attachments as enhanced_parse_attachments
         
         # Parse attachments with enhanced parsing for RAG
         parsed_attachments = enhanced_parse_attachments(email_data['attachments'])
@@ -394,7 +418,8 @@ if __name__ == '__main__':
         for attachment in parsed_attachments:
             print(f"  - {attachment['filename']}: {attachment.get('document_type', 'unknown')}")
             if attachment.get('text'):
-                print(f"    Text length: {len(attachment['text'])} characters")
+                ocr_status = " (OCR used)" if attachment.get('used_ocr', False) else ""
+                print(f"    Text length: {len(attachment['text'])} characters{ocr_status}")
                 rag_texts.append(attachment['text'])
                 # Also add structured data as text for RAG
                 if attachment.get('structured_data'):

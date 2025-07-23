@@ -261,13 +261,56 @@ def extract_structured_data_from_text(text: str, doc_type: str) -> Dict:
     return structured_data
 
 def parse_pdf(data: bytes) -> Dict:
-    """Enhanced PDF parsing with table extraction and structured data"""
+    """Enhanced PDF parsing with OCR fallback for image-based PDFs"""
     text = ""
     tables = []
+    used_ocr = False
     
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for page in pdf.pages:
+            # Try to extract text first (for text-based PDFs)
             page_text = page.extract_text() or ""
+            
+            # If no text extracted, convert page to image and use OCR
+            if not page_text.strip():
+                try:
+                    # Convert PDF page to image using pdf2image approach
+                    import fitz  # PyMuPDF
+                    import tempfile
+                    
+                    # Create a temporary PDF file
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+                        tmp_file.write(data)
+                        tmp_file_path = tmp_file.name
+                    
+                    # Open with PyMuPDF and convert to image
+                    doc = fitz.open(tmp_file_path)
+                    if len(doc) > 0:
+                        page_pdf = doc[0]  # Get first page
+                        mat = fitz.Matrix(2, 2)  # Scale factor for better OCR
+                        pix = page_pdf.get_pixmap(matrix=mat)
+                        
+                        # Convert to PIL Image
+                        img_data = pix.tobytes("png")
+                        pil_image = Image.open(io.BytesIO(img_data))
+                        
+                        # Enhance image for better OCR
+                        enhanced_image = enhance_image_for_ocr(pil_image)
+                        # Use OCR to extract text
+                        page_text = pytesseract.image_to_string(enhanced_image)
+                        used_ocr = True
+                        print(f"Used OCR for page with no extractable text")
+                    
+                    doc.close()
+                    
+                    # Clean up temporary file
+                    import os
+                    os.unlink(tmp_file_path)
+                    
+                except Exception as e:
+                    print(f"OCR failed for page: {e}")
+                    page_text = ""
+            
             text += page_text + "\n"
             
             # Extract tables from this page
@@ -279,7 +322,8 @@ def parse_pdf(data: bytes) -> Dict:
     return {
         'text': text,
         'tables': tables,
-        'raw_tables': extract_tables_from_pdf(data)
+        'raw_tables': extract_tables_from_pdf(data),
+        'used_ocr': used_ocr
     }
 
 def parse_image(data: bytes) -> Dict:
@@ -337,13 +381,16 @@ def parse_attachments(attachments) -> List[Dict]:
             parsed_data = parse_pdf(data)
             text = parsed_data['text']
             tables = parsed_data['tables']
+            used_ocr = parsed_data.get('used_ocr', False)
         elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
             parsed_data = parse_image(data)
             text = parsed_data['text']
             tables = parsed_data['tables']
+            used_ocr = True  # Images always use OCR
         else:
             text = None
             tables = []
+            used_ocr = False
         
         if text:
             # Detect document type
@@ -357,7 +404,8 @@ def parse_attachments(attachments) -> List[Dict]:
                 'text': text,
                 'tables': tables,
                 'document_type': doc_type,
-                'structured_data': structured_data
+                'structured_data': structured_data,
+                'used_ocr': used_ocr
             })
         else:
             results.append({
