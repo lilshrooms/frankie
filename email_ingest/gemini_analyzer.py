@@ -55,56 +55,31 @@ def analyze_with_gemini(email_body: str, attachments_data: List[Dict], criteria:
                 attachments_text += f"\n{tables_text}\n"
                 all_tables.extend(attachment['tables'])
     
-    # Simplified prompt focused on preliminary qualification
+    # FRESH START: Simple, clear analysis prompt
     prompt = f'''
-You are a mortgage loan processor helping with preliminary qualification. Your task is to extract key information and provide a high-level assessment.
-
-**BASIC QUALIFICATION CRITERIA:**
-- Minimum credit score: 620 (FHA), 680 (Conventional)
-- Maximum DTI: 43% (FHA), 45% (Conventional)
-- Minimum down payment: 3.5% (FHA), 3% (Conventional)
-
-**PRE-EXTRACTED EMAIL FIELDS (HIGH PRIORITY - USE THESE IF AVAILABLE):**
-{pre_extracted_str}
-
-**PRE-EXTRACTED STRUCTURED DATA FROM DOCUMENTS:**
-{format_structured_data(all_structured_data)}
+Analyze this mortgage loan request. Use ONLY information that is explicitly provided.
 
 **EMAIL BODY:**
 {email_body}
+
+**EXTRACTED EMAIL FIELDS:**
+{pre_extracted_str}
 
 **DOCUMENT ANALYSIS:**
 {attachments_text}
 
 **TASK:**
-1. **Extract key information (PRIORITIZE EMAIL BODY DATA FIRST):**
-   - **Credit Score(s)** - Check email body first, then documents
-   - **Loan Amount & Purchase Price** - Check email body first, then documents  
-   - **Borrower Name(s)**
-   - **Monthly Income (gross)**
-   - **Monthly Debts (including credit cards)**
-   - **Down Payment Amount**
-   - **Property Type & Occupancy**
+1. List ONLY information that is explicitly stated
+2. Identify what is missing
+3. Provide next steps
 
-2. **Preliminary Assessment:**
-   - Does the borrower meet basic credit score requirements?
-   - Can we calculate a preliminary DTI ratio?
-   - Are there any obvious red flags?
-   - What documents are still needed?
+**CRITICAL: DO NOT make up or infer any information. If something is not stated, mark it as missing.**
 
-3. **Next Steps:**
-   - List 2-3 specific items needed to proceed
-   - Suggest loan program if possible (FHA/Conventional)
-
-**CRITICAL: If credit score, loan amount, or purchase price are mentioned in the email body, use those values and do NOT list them as missing items.**
-
-**IMPORTANT:**
-- Focus on high-level qualification, not detailed underwriting
-- Be concise and clear
-- Flag missing critical information
-- Provide actionable next steps
-
-Return a brief, structured response with: QUALIFICATION STATUS, KEY FINDINGS, MISSING ITEMS, NEXT STEPS.
+Return a structured response with:
+- QUALIFICATION STATUS
+- KEY FINDINGS (only stated facts)
+- MISSING ITEMS
+- NEXT STEPS
 '''
     
     data = {

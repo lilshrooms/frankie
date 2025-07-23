@@ -35,13 +35,13 @@ def get_gmail_service():
 def fetch_recent_emails():
     service = get_gmail_service()
     
-    # Get unread emails from the last 24 hours
+    # Get emails from the last 6 hours (including read ones for testing)
     import datetime
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-    date_query = yesterday.strftime('%Y/%m/%d')
+    six_hours_ago = datetime.datetime.now() - datetime.timedelta(hours=6)
+    date_query = six_hours_ago.strftime('%Y/%m/%d')
     
-    # Query for unread emails from the last 24 hours
-    query = f'is:unread after:{date_query}'
+    # Query for recent emails (including read ones for testing)
+    query = f'after:{date_query}'
     results = service.users().messages().list(userId='me', q=query, maxResults=50).execute()
     messages = results.get('messages', [])
     
@@ -62,6 +62,7 @@ def fetch_recent_emails():
         # Get email date
         date_header = next((h['value'] for h in headers if h['name'] == 'Date'), None)
         
+        # FRESH START: Simple email body extraction
         body = ''
         if 'data' in payload.get('body', {}):
             body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
@@ -69,6 +70,13 @@ def fetch_recent_emails():
             for part in payload['parts']:
                 if part['mimeType'] == 'text/plain' and 'data' in part['body']:
                     body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                    break
+                elif part['mimeType'] == 'text/html' and 'data' in part['body'] and not body:
+                    html_body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                    import re
+                    body = re.sub(r'<[^>]+>', '', html_body)
+                    body = re.sub(r'\s+', ' ', body).strip()
+                    break
         
         attachments = []
         if 'parts' in payload:
@@ -88,6 +96,8 @@ def fetch_recent_emails():
             'attachments': attachments,
             'date': date_header
         })
+        
+
     
     return emails
 
@@ -191,51 +201,37 @@ def extract_fields_from_body(body):
     return fields
 
 def extract_fields_with_gemini(email_body):
-    # Use Gemini to extract key fields from the email body only
+    # FRESH START: Simple extraction with strict anti-hallucination
+    if not email_body or len(email_body.strip()) < 5:
+        print(f"Email body too short ({len(email_body)} chars), skipping")
+        return {}
+    
+    # Check for AI response content
+    if 'PRELIMINARY LOAN ASSESSMENT' in email_body or 'QUALIFICATION STATUS' in email_body:
+        print(f"Email contains AI response, skipping")
+        return {}
+    
     prompt = f'''
-You are a mortgage loan processor extracting key information from an email. Extract the following fields from the email body below:
+Extract ONLY explicitly stated information from this email. DO NOT make up or infer anything.
 
-**CRITICAL FIELDS TO EXTRACT:**
-- Credit Score (look for numbers like "700s", "750", "high 700s", "low 600s", etc.)
-- Loan Amount (look for amounts like "300k", "$300,000", "300k loan", etc.)
-- Purchase Price (look for amounts like "400k", "$400,000", "buying for 400k", etc.)
-- Property Type (SFH, condo, townhouse, etc.)
-- Occupancy Type (primary, investment, second home)
-- Borrower Name(s)
-- Property Location (city, state)
+Email: {email_body}
 
-**ADDITIONAL FIELDS:**
-- Monthly Income
-- Monthly Debts
-- Down Payment Amount
-- Loan Type (Conventional, FHA, VA, etc.)
-
-**EMAIL BODY:**
-{email_body}
-
-**INSTRUCTIONS:**
-1. Look carefully for any numbers that could be credit scores, loan amounts, or purchase prices
-2. Pay attention to phrases like "needs a 300k loan", "buying for 400k", "credit score is high 700s"
-3. Return ONLY a valid JSON object with the extracted fields
-4. Use null for missing fields
-5. For credit scores, extract the actual number or range (e.g., "750" or "700s")
-
-**EXAMPLE OUTPUT:**
+Return JSON with ONLY information that is explicitly stated:
 {{
-  "credit_score": "750",
-  "loan_amount": "300000",
-  "purchase_price": "400000",
-  "property_type": "SFH",
-  "occupancy": "primary",
-  "borrower_name": "John Doe",
-  "property_location": "SF CA",
+  "credit_score": null,
+  "loan_amount": null, 
+  "purchase_price": null,
+  "property_type": null,
+  "occupancy": null,
+  "borrower_name": null,
+  "property_location": null,
   "monthly_income": null,
   "monthly_debts": null,
-  "down_payment": "100000",
+  "down_payment": null,
   "loan_type": null
 }}
 
-Return ONLY the JSON object, no other text.
+If nothing is stated, return empty {{}}.
 '''
     from email_ingest.gemini_analyzer import GEMINI_API_URL
     import os, requests
@@ -365,6 +361,9 @@ if __name__ == '__main__':
     for email_data in emails:
         print(f"\n---\nChecking email: Subject: {email_data['subject']} | From: {email_data['from']}")
         print(f"Body preview: {email_data['body'][:120].replace('\n', ' ')}")
+        print(f"Body length: {len(email_data['body'])}")
+        if len(email_data['body']) > 0:
+            print(f"Full body: {repr(email_data['body'])}")
         is_mortgage = is_mortgage_email(email_data['subject'], email_data['body'])
         if not is_mortgage:
             print(f"[SKIP] Not a mortgage-related email.\n")
@@ -382,6 +381,8 @@ if __name__ == '__main__':
         # Step 1: Extract fields from email body using Gemini
         gemini_fields = extract_fields_with_gemini(email_data['body'])
         print(f"Gemini Body Extraction: {gemini_fields}")
+        
+
         # Build RAG index from attachments using enhanced parsing
         from email_ingest.attachment_parser import parse_attachments as enhanced_parse_attachments
         
