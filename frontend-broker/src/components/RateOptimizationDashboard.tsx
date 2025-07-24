@@ -14,8 +14,6 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import './RateOptimizationDashboard.css';
-import './DarkModeToggle.css';
-import DarkModeToggle from './DarkModeToggle';
 import { 
   getCurrentRates, 
   generateQuote, 
@@ -35,7 +33,7 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('quote');
   const [results, setResults] = useState<any>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [borrowerData, setBorrowerData] = useState({
     loan_amount: 500000,
     credit_score: 720,
@@ -43,27 +41,7 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
     loan_type: '30yr_fixed'
   });
 
-  // Load dark mode preference from localStorage
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    setIsDarkMode(savedDarkMode);
-  }, []);
 
-  // Save dark mode preference to localStorage
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode.toString());
-  };
-
-  // Apply dark mode class to body
-  useEffect(() => {
-    if (isDarkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-  }, [isDarkMode]);
 
   const loadCurrentRates = useCallback(async () => {
     try {
@@ -88,6 +66,7 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
 
   const generateRateQuote = async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await generateQuote({
         loan_amount: borrowerData.loan_amount,
@@ -95,10 +74,18 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
         ltv: borrowerData.ltv,
         loan_type: borrowerData.loan_type
       });
-      setResults({ type: 'quote', data: result });
-      setActiveTab('quote');
+      
+      if (result.success && result.quote) {
+        console.log('Quote result:', result); // Debug log
+        setResults({ type: 'quote', data: result });
+        setActiveTab('quote');
+      } else {
+        console.error('Quote generation failed:', result.error);
+        setError(result.error || 'Failed to generate quote');
+      }
     } catch (error) {
       console.error('Error generating quote:', error);
+      setError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -214,8 +201,8 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
           <p>Generate quotes, optimize rates, and analyze borrower scenarios with AI assistance.</p>
         </div>
         <div className="header-actions">
-          <motion.button 
-            onClick={loadCurrentRates} 
+                    <motion.button
+            onClick={loadCurrentRates}
             className="refresh-btn"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -223,7 +210,6 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
             <RefreshCw size={20} />
             Refresh Rates
           </motion.button>
-          <DarkModeToggle isDark={isDarkMode} onToggle={toggleDarkMode} />
         </div>
       </motion.div>
 
@@ -467,6 +453,19 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
                 {loading ? 'Processing...' : 'Generate'}
               </motion.button>
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <motion.div 
+                className="error"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <AlertCircle size={16} />
+                {error}
+              </motion.div>
+            )}
 
             <AnimatePresence mode="wait">
               {results && results.type === activeTab && (

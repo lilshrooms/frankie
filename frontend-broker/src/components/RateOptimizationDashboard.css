@@ -840,6 +840,21 @@
   gap: 12px;
 }
 
+/* Error State */
+.error {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  color: #dc2626;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .rate-optimization-dashboard {
