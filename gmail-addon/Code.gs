@@ -4,8 +4,8 @@
  */
 
 // Configuration
-const FRANKIE_API_BASE = 'https://your-frankie-domain.com'; // Update with your domain
-const FRANKIE_API_KEY = 'your-api-key'; // Add your API key
+const FRANKIE_API_BASE = 'http://localhost:8000'; // Update with your domain for production
+const FRANKIE_API_KEY = 'frankie-gmail-addon-key-2024'; // API key for Gmail Add-on
 
 /**
  * Triggered when a Gmail message is selected

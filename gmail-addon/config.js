@@ -5,8 +5,8 @@
 
 const CONFIG = {
   // Frankie Backend API Configuration
-  FRANKIE_API_BASE: 'https://your-frankie-domain.com', // Update with your domain
-  FRANKIE_API_KEY: 'your-api-key', // Add your API key
+  FRANKIE_API_BASE: 'http://localhost:8000', // Update with your domain for production
+  FRANKIE_API_KEY: 'frankie-gmail-addon-key-2024', // API key for Gmail Add-on
   
   // Gmail Add-on Configuration
   ADDON_NAME: 'Frankie AI Assistant',
@@ -29,7 +29,7 @@ const CONFIG = {
   ENDPOINTS: {
     EMAIL_PROCESS: '/email/process',
     RATE_QUOTE: '/rates/quote',
-    LOAN_FILES: '/loan-files',
+    LOAN_FILES: '/loan-files/gmail',
     DOCUMENT_PROCESS: '/documents/process'
   },
   

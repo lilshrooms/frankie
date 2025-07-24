@@ -26,7 +26,8 @@ beautifulsoup4==4.12.2
 schedule==1.2.0
 
 # Database
-sqlite3
+psycopg2-binary==2.9.10  # PostgreSQL adapter for Supabase
+# sqlite3  # Built-in, no need to install
 
 # Development
 pytest==7.4.3
