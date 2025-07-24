@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional, Any
 import os
@@ -13,10 +13,14 @@ from datetime import datetime
 import re
 import sys
 import logging
+import secrets
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# API Key for Gmail Add-on (in production, use environment variables)
+GMAIL_ADDON_API_KEY = os.getenv("GMAIL_ADDON_API_KEY", "frankie-gmail-addon-key-2024")
 
 # Add paths for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'engine'))
@@ -1007,6 +1011,159 @@ def classify_doc_type(filename: str, text: str = "") -> str:
 
 class AnalyzeRequest(BaseModel):
     email_body: str = ""
+
+# API Key authentication for Gmail Add-on
+async def verify_api_key(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(
+            status_code=401, 
+            detail="API key required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # Extract API key from "Bearer <key>" format
+    if authorization.startswith("Bearer "):
+        api_key = authorization[7:]
+    else:
+        api_key = authorization
+    
+    if api_key != GMAIL_ADDON_API_KEY:
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    return api_key
+
+# Document processing endpoint for Gmail Add-on
+class DocumentProcessRequest(BaseModel):
+    """Request model for document processing from Gmail Add-on."""
+    attachments: List[Dict[str, Any]]
+    thread_id: Optional[str] = None
+
+@app.post("/documents/process")
+async def process_documents(
+    request: DocumentProcessRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Process documents from Gmail attachments."""
+    try:
+        results = []
+        
+        for attachment in request.attachments:
+            try:
+                # Decode base64 data
+                import base64
+                file_data = base64.b64decode(attachment.get('data', ''))
+                filename = attachment.get('name', 'unknown')
+                content_type = attachment.get('contentType', 'application/octet-stream')
+                
+                # Process based on content type
+                if 'pdf' in content_type.lower():
+                    # Process PDF
+                    result = {
+                        "filename": filename,
+                        "type": "pdf",
+                        "processed": True,
+                        "extracted_text": "PDF content extracted",  # Mock for now
+                        "document_type": classify_doc_type(filename),
+                        "status": "success"
+                    }
+                elif 'image' in content_type.lower():
+                    # Process image (OCR)
+                    result = {
+                        "filename": filename,
+                        "type": "image",
+                        "processed": True,
+                        "extracted_text": "Image content extracted via OCR",  # Mock for now
+                        "document_type": classify_doc_type(filename),
+                        "status": "success"
+                    }
+                else:
+                    result = {
+                        "filename": filename,
+                        "type": "unknown",
+                        "processed": False,
+                        "error": "Unsupported file type",
+                        "status": "error"
+                    }
+                
+                results.append(result)
+                
+            except Exception as e:
+                logger.error(f"Error processing attachment {attachment.get('name', 'unknown')}: {str(e)}")
+                results.append({
+                    "filename": attachment.get('name', 'unknown'),
+                    "type": "error",
+                    "processed": False,
+                    "error": str(e),
+                    "status": "error"
+                })
+        
+        return {
+            "success": True,
+            "results": results,
+            "thread_id": request.thread_id,
+            "total_processed": len([r for r in results if r.get("processed", False)]),
+            "total_errors": len([r for r in results if r.get("status") == "error"])
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in document processing: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Document processing failed: {str(e)}")
+
+# Loan file creation endpoint for Gmail Add-on
+class GmailLoanFileRequest(BaseModel):
+    """Request model for creating loan files from Gmail Add-on."""
+    borrower: str
+    broker: str
+    loan_type: str
+    amount: str
+    thread_id: Optional[str] = None
+    email_summary: Optional[str] = None
+
+@app.post("/loan-files/gmail")
+async def create_loan_file_from_gmail(
+    request: GmailLoanFileRequest,
+    api_key: str = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Create a loan file from Gmail Add-on."""
+    try:
+        # Create the LoanFile
+        loan_file = models.LoanFile(
+            borrower=request.borrower,
+            broker=request.broker,
+            loan_type=request.loan_type,
+            amount=request.amount,
+            status="new",
+            last_activity=datetime.now(),
+            outstanding_items="Initial setup required",
+            gmail_thread_id=request.thread_id,
+            email_summary=request.email_summary
+        )
+        
+        db.add(loan_file)
+        db.commit()
+        db.refresh(loan_file)
+        
+        return {
+            "success": True,
+            "loan_file": {
+                "id": loan_file.id,
+                "borrower": loan_file.borrower,
+                "broker": loan_file.broker,
+                "status": loan_file.status,
+                "last_activity": loan_file.last_activity,
+                "outstanding_items": loan_file.outstanding_items
+            },
+            "thread_id": request.thread_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating loan file from Gmail: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create loan file: {str(e)}")
 
 @app.post("/loan-files/{loan_file_id}/analyze")
 def analyze_loan_file(loan_file_id: int, request: AnalyzeRequest = Body(...), db: Session = Depends(get_db)):
