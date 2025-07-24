@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd frontend-broker && npm install && npm run build",
+  "outputDirectory": "frontend-broker/build",
+  "installCommand": "cd frontend-broker && npm install",
+  "framework": "create-react-app",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+} 
