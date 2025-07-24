@@ -40,7 +40,7 @@ function App() {
       case 'rates':
         return 'Rate Optimization';
       default:
-        return 'Frankie Admin';
+        return 'Frankie';
     }
   };
 
@@ -50,7 +50,7 @@ function App() {
         <div className="App">
           <nav className="admin-nav">
             <div className="nav-brand">
-              <h1>Frankie Admin</h1>
+              <h1>Frankie</h1>
             </div>
             <div className="nav-links">
               <button
