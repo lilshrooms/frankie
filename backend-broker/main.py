@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # API Key for Gmail Add-on (in production, use environment variables)
-GMAIL_ADDON_API_KEY = os.getenv("GMAIL_ADDON_API_KEY", "frankie-gmail-addon-key-2024")
+GMAIL_ADDON_API_KEY = os.getenv("GMAIL_ADDON_API_KEY", "frankie-gmail-addon-key-2025")
 
 # Add paths for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'engine'))
