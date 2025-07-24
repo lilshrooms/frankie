@@ -84,6 +84,19 @@ export async function getCurrentRates() {
   return response.json();
 }
 
+// Rate option interface for the new format
+export interface RateOption {
+  rate: number;
+  apr: number;
+  fees: number;
+  lock_period: number;
+  source: string;
+}
+
+export interface CurrentRates {
+  [loanType: string]: RateOption[];
+}
+
 // Generate rate quote
 export async function generateQuote(params: {
   loan_amount: number;

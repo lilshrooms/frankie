@@ -25,8 +25,12 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
 
   const loadCurrentRates = useCallback(async () => {
     try {
-      const rates = await getCurrentRates();
-      setCurrentRates(rates);
+      const response = await getCurrentRates();
+      if (response.success && response.rates) {
+        setCurrentRates(response.rates);
+      } else {
+        showError('Failed to load current rates', 'No rates data available.');
+      }
     } catch (error) {
       showError('Failed to load current rates', 'Please try refreshing the page.');
     }
@@ -143,11 +147,25 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
         <div className="rates-panel">
           <h3>Current Market Rates</h3>
           {currentRates ? (
-            <div className="rates-grid">
-              {Object.entries(currentRates).map(([loanType, rate]: [string, any]) => (
-                <div key={loanType} className="rate-card">
-                  <div className="rate-type">{loanType.replace(/_/g, ' ').toUpperCase()}</div>
-                  <div className="rate-value">{formatPercentage(rate)}</div>
+            <div className="rates-container">
+              {Object.entries(currentRates).map(([loanType, rateOptions]: [string, any[]]) => (
+                <div key={loanType} className="loan-type-section">
+                  <h4 className="loan-type-title">{loanType.replace(/_/g, ' ').toUpperCase()}</h4>
+                  <div className="rate-options">
+                    {rateOptions.map((option, index) => (
+                      <div key={index} className="rate-option-card">
+                        <div className="rate-header">
+                          <div className="rate-value">{formatPercentage(option.rate)}</div>
+                          <div className="rate-apr">APR: {formatPercentage(option.apr)}</div>
+                        </div>
+                        <div className="rate-details">
+                          <div className="rate-fee">Fees: {formatCurrency(option.fees)}</div>
+                          <div className="rate-lock">{option.lock_period} day lock</div>
+                        </div>
+                        <div className="rate-source">Source: {option.source}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -206,10 +224,20 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
                 onChange={(e) => handleInputChange('loan_type', e.target.value)}
                 className="form-select"
               >
-                <option value="conventional">Conventional</option>
-                <option value="fha">FHA</option>
-                <option value="va">VA</option>
-                <option value="usda">USDA</option>
+                {currentRates ? (
+                  Object.keys(currentRates).map(loanType => (
+                    <option key={loanType} value={loanType}>
+                      {loanType.replace(/_/g, ' ').toUpperCase()}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="30yr_fixed">30YR FIXED</option>
+                    <option value="15yr_fixed">15YR FIXED</option>
+                    <option value="fha_30yr">FHA 30YR</option>
+                    <option value="va_30yr">VA 30YR</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
