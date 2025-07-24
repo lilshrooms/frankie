@@ -1,0 +1,211 @@
+.dark-mode-toggle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dark-mode-toggle:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Dark mode styles */
+.dark-mode {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+.dark-mode .rate-optimization-dashboard {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.dark-mode .dashboard-header,
+.dark-mode .rates-panel,
+.dark-mode .input-panel,
+.dark-mode .results-panel {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+.dark-mode .dashboard-header h2,
+.dark-mode .panel-header h3,
+.dark-mode .tab-header h3 {
+  color: #f1f5f9;
+}
+
+.dark-mode .dashboard-header p {
+  color: #94a3b8;
+}
+
+.dark-mode .form-input,
+.dark-mode .form-select {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .form-input:focus,
+.dark-mode .form-select:focus {
+  border-color: #3b82f6;
+  background: #475569;
+}
+
+.dark-mode .rate-option-card {
+  background: linear-gradient(135deg, #334155 0%, #475569 100%);
+  border-color: #64748b;
+}
+
+.dark-mode .action-tabs {
+  background: #334155;
+  border-color: #475569;
+}
+
+.dark-mode .tab-button {
+  color: #94a3b8;
+}
+
+.dark-mode .tab-button:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.dark-mode .tab-button.active {
+  background: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .quote-summary {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  border-color: #3b82f6;
+}
+
+.dark-mode .optimization-summary {
+  background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+  border-color: #f59e0b;
+}
+
+.dark-mode .quote-details,
+.dark-mode .eligibility-status,
+.dark-mode .optimization-details,
+.dark-mode .analysis-explanation,
+.dark-mode .improvement-suggestions,
+.dark-mode .rate-breakdown,
+.dark-mode .market-context,
+.dark-mode .summary-card {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .breakdown-item {
+  background: #475569;
+  border-color: #64748b;
+}
+
+.dark-mode .suggestion-item {
+  background: #475569;
+  border-left-color: #3b82f6;
+}
+
+.dark-mode .suggestion-item:hover {
+  background: #1e3a8a;
+}
+
+.dark-mode .breakdown-base,
+.dark-mode .breakdown-final {
+  background: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .breakdown-adjustment {
+  background: #475569;
+  border-left-color: #64748b;
+  color: #94a3b8;
+}
+
+.dark-mode .loan-type-title {
+  color: #e2e8f0;
+  border-bottom-color: #475569;
+}
+
+.dark-mode .rate-fee {
+  color: #cbd5e1;
+}
+
+.dark-mode .rate-lock {
+  color: #94a3b8;
+}
+
+.dark-mode .rate-source {
+  color: #64748b;
+}
+
+.dark-mode .input-field label {
+  color: #e2e8f0;
+}
+
+.dark-mode .input-icon {
+  color: #94a3b8;
+}
+
+.dark-mode .tab-header {
+  border-bottom-color: #475569;
+}
+
+.dark-mode .summary-card h5 {
+  border-bottom-color: #475569;
+}
+
+.dark-mode .card-content {
+  color: #e2e8f0;
+}
+
+.dark-mode .eligibility-reasons {
+  color: #94a3b8;
+}
+
+.dark-mode .option-feasibility {
+  color: #94a3b8;
+}
+
+.dark-mode .suggestion-impact,
+.dark-mode .suggestion-action {
+  color: #94a3b8;
+}
+
+.dark-mode .market-context p {
+  color: #e2e8f0;
+}
+
+.dark-mode .analysis-explanation p {
+  color: #e2e8f0;
+}
+
+.dark-mode .loading {
+  color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .dark-mode-toggle {
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+  }
+} 

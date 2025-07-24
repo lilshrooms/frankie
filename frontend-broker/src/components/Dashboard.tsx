@@ -199,8 +199,11 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <h2>Loan Files</h2>
-        <div style={{display:'flex',alignItems:'center',gap:16}}>
+        <div className="header-content">
+          <h2>Loan Files</h2>
+          <p>Manage and track loan applications with real-time status updates and document processing</p>
+        </div>
+        <div className="header-actions">
           <Tooltip content={showAll ? 'Show only urgent/high-priority loan files' : 'Show all loan files (including non-urgent)'}>
             <button
               className="action-btn"

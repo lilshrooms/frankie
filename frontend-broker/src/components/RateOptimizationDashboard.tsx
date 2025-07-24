@@ -1,27 +1,69 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCurrentRates, generateQuote, optimizeRates, analyzeQuote, quickRateAnalysis } from '../api/rateSystem';
-import { useToast } from './ToastContainer';
-import { FaCalculator, FaChartLine, FaLightbulb, FaDownload } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  TrendingUp, 
+  Calculator, 
+  Zap, 
+  BarChart3, 
+  RefreshCw, 
+  DollarSign,
+  Clock,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  ArrowUpRight
+} from 'lucide-react';
 import './RateOptimizationDashboard.css';
+import './DarkModeToggle.css';
+import DarkModeToggle from './DarkModeToggle';
+import { 
+  getCurrentRates, 
+  generateQuote, 
+  optimizeRates, 
+  analyzeQuote, 
+  quickRateAnalysis,
+  RateOption,
+  CurrentRates
+} from '../api/rateSystem';
 
 interface RateOptimizationDashboardProps {
   onSelectBorrower?: (borrowerData: any) => void;
 }
 
 const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ onSelectBorrower }) => {
-  const { showSuccess, showError } = useToast();
-  const [currentRates, setCurrentRates] = useState<any>(null);
+  const [currentRates, setCurrentRates] = useState<CurrentRates | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('quote');
+  const [results, setResults] = useState<any>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [borrowerData, setBorrowerData] = useState({
-    loan_amount: 300000,
+    loan_amount: 500000,
     credit_score: 720,
     ltv: 80,
-    loan_type: 'conventional'
+    loan_type: '30yr_fixed'
   });
-  const [quoteResult, setQuoteResult] = useState<any>(null);
-  const [optimizationResult, setOptimizationResult] = useState<any>(null);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'quote' | 'optimize' | 'analyze' | 'quick'>('quote');
+
+  // Load dark mode preference from localStorage
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    setIsDarkMode(savedDarkMode);
+  }, []);
+
+  // Save dark mode preference to localStorage
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', newDarkMode.toString());
+  };
+
+  // Apply dark mode class to body
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [isDarkMode]);
 
   const loadCurrentRates = useCallback(async () => {
     try {
@@ -29,36 +71,34 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
       if (response.success && response.rates) {
         setCurrentRates(response.rates);
       } else {
-        showError('Failed to load current rates', 'No rates data available.');
+        console.error('Failed to load current rates', 'No rates data available.');
       }
     } catch (error) {
-      showError('Failed to load current rates', 'Please try refreshing the page.');
+      console.error('Failed to load current rates', 'Please try refreshing the page.');
     }
-  }, [showError]);
+  }, []);
 
   useEffect(() => {
     loadCurrentRates();
   }, [loadCurrentRates]);
 
   const handleInputChange = (field: string, value: any) => {
-    setBorrowerData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setBorrowerData(prev => ({ ...prev, [field]: value }));
   };
 
   const generateRateQuote = async () => {
     setLoading(true);
     try {
-      const result = await generateQuote(borrowerData);
-      if (result.success) {
-        setQuoteResult(result.quote);
-        showSuccess('Quote Generated', 'Rate quote has been calculated successfully.');
-      } else {
-        showError('Quote Failed', result.error || 'Failed to generate quote.');
-      }
+      const result = await generateQuote({
+        loan_amount: borrowerData.loan_amount,
+        credit_score: borrowerData.credit_score,
+        ltv: borrowerData.ltv,
+        loan_type: borrowerData.loan_type
+      });
+      setResults({ type: 'quote', data: result });
+      setActiveTab('quote');
     } catch (error) {
-      showError('Quote Error', 'Failed to generate rate quote.');
+      console.error('Error generating quote:', error);
     } finally {
       setLoading(false);
     }
@@ -67,37 +107,29 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
   const optimizeBorrowerRates = async () => {
     setLoading(true);
     try {
-      const result = await optimizeRates(borrowerData);
-      if (result.success) {
-        setOptimizationResult(result.optimization);
-        showSuccess('Optimization Complete', 'Rate optimization analysis is ready.');
-      } else {
-        showError('Optimization Failed', result.error || 'Failed to optimize rates.');
-      }
+      const result = await optimizeRates({
+        loan_amount: borrowerData.loan_amount,
+        credit_score: borrowerData.credit_score,
+        ltv: borrowerData.ltv,
+        loan_type: borrowerData.loan_type
+      });
+      setResults({ type: 'optimization', data: result });
+      setActiveTab('optimization');
     } catch (error) {
-      showError('Optimization Error', 'Failed to optimize rates.');
+      console.error('Error optimizing rates:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const analyzeRateQuote = async () => {
-    if (!quoteResult) {
-      showError('No Quote Available', 'Please generate a quote first.');
-      return;
-    }
-
     setLoading(true);
     try {
-      const result = await analyzeQuote(quoteResult, borrowerData);
-      if (result.success) {
-        setAnalysisResult(result.analysis);
-        showSuccess('Analysis Complete', 'AI analysis of the rate quote is ready.');
-      } else {
-        showError('Analysis Failed', result.error || 'Failed to analyze quote.');
-      }
+      const result = await analyzeQuote(results?.data?.quote || {}, borrowerData);
+      setResults({ type: 'analysis', data: result });
+      setActiveTab('analysis');
     } catch (error) {
-      showError('Analysis Error', 'Failed to analyze rate quote.');
+      console.error('Error analyzing quote:', error);
     } finally {
       setLoading(false);
     }
@@ -106,17 +138,16 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
   const performQuickAnalysis = async () => {
     setLoading(true);
     try {
-      const result = await quickRateAnalysis(borrowerData);
-      if (result.success) {
-        setQuoteResult(result.quote);
-        setOptimizationResult(result.optimization);
-        setAnalysisResult(result.analysis);
-        showSuccess('Quick Analysis Complete', 'Complete rate analysis is ready.');
-      } else {
-        showError('Quick Analysis Failed', result.error || 'Failed to perform quick analysis.');
-      }
+      const result = await quickRateAnalysis({
+        loan_amount: borrowerData.loan_amount,
+        credit_score: borrowerData.credit_score,
+        ltv: borrowerData.ltv,
+        loan_type: borrowerData.loan_type
+      });
+      setResults({ type: 'quick', data: result });
+      setActiveTab('quick');
     } catch (error) {
-      showError('Quick Analysis Error', 'Failed to perform quick analysis.');
+      console.error('Error performing quick analysis:', error);
     } finally {
       setLoading(false);
     }
@@ -135,377 +166,458 @@ const RateOptimizationDashboard: React.FC<RateOptimizationDashboardProps> = ({ o
     return `${(rate * 100).toFixed(3)}%`;
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5 }
+    }
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.3 }
+    },
+    hover: {
+      scale: 1.02,
+      transition: { duration: 0.2 }
+    }
+  };
+
   return (
-    <div className="rate-optimization-dashboard">
-      <div className="dashboard-header">
-        <h2>Rate Optimization Dashboard</h2>
-        <p>Generate quotes, optimize rates, and analyze borrower scenarios with AI assistance.</p>
-      </div>
+    <motion.div 
+      className="rate-optimization-dashboard"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className="dashboard-header" variants={itemVariants}>
+        <div className="header-content">
+          <h2>
+            Rate Optimization Dashboard
+          </h2>
+          <p>Generate quotes, optimize rates, and analyze borrower scenarios with AI assistance.</p>
+        </div>
+        <div className="header-actions">
+          <motion.button 
+            onClick={loadCurrentRates} 
+            className="refresh-btn"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <RefreshCw size={20} />
+            Refresh Rates
+          </motion.button>
+          <DarkModeToggle isDark={isDarkMode} onToggle={toggleDarkMode} />
+        </div>
+      </motion.div>
 
       <div className="dashboard-layout">
         {/* Current Rates Panel */}
-        <div className="rates-panel">
-          <h3>Current Market Rates</h3>
-          {currentRates ? (
-            <div className="rates-container">
-              {Object.entries(currentRates).map(([loanType, rateOptions]: [string, any[]]) => (
-                <div key={loanType} className="loan-type-section">
-                  <h4 className="loan-type-title">{loanType.replace(/_/g, ' ').toUpperCase()}</h4>
-                  <div className="rate-options">
-                    {rateOptions.map((option, index) => (
-                      <div key={index} className="rate-option-card">
-                        <div className="rate-header">
-                          <div className="rate-value">{formatPercentage(option.rate)}</div>
-                          <div className="rate-apr">APR: {formatPercentage(option.apr)}</div>
-                        </div>
-                        <div className="rate-details">
-                          <div className="rate-fee">Fees: {formatCurrency(option.fees)}</div>
-                          <div className="rate-lock">{option.lock_period} day lock</div>
-                        </div>
-                        <div className="rate-source">Source: {option.source}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="loading">Loading current rates...</div>
-          )}
-          <button onClick={loadCurrentRates} className="btn btn-secondary">
-            <FaDownload /> Refresh Rates
-          </button>
-        </div>
+        <motion.div className="rates-panel" variants={itemVariants}>
+          <div className="panel-header">
+            <TrendingUp size={24} className="text-green-500" />
+            <h3>Current Market Rates</h3>
+          </div>
+          
+          <AnimatePresence mode="wait">
+            {currentRates ? (
+              <motion.div 
+                className="rates-container"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {Object.entries(currentRates).map(([loanType, rateOptions]: [string, RateOption[]]) => (
+                  <motion.div key={loanType} className="loan-type-section" variants={itemVariants}>
+                    <h4 className="loan-type-title">
+                      {loanType.replace(/_/g, ' ').toUpperCase()}
+                    </h4>
+                    <div className="rate-options">
+                      {rateOptions.map((option, index) => (
+                        <motion.div 
+                          key={index} 
+                          className="rate-option-card"
+                          variants={cardVariants}
+                          whileHover="hover"
+                          layout
+                        >
+                          <div className="rate-header">
+                            <div className="rate-value">
+                              <DollarSign size={20} className="text-green-500" />
+                              {formatPercentage(option.rate)}
+                            </div>
+                            <div className="rate-apr">
+                              APR: {formatPercentage(option.apr)}
+                            </div>
+                          </div>
+                          <div className="rate-details">
+                            <div className="rate-fee">
+                              <FileText size={16} />
+                              Fees: {formatCurrency(option.fees)}
+                            </div>
+                            <div className="rate-lock">
+                              <Clock size={16} />
+                              {option.lock_period} day lock
+                            </div>
+                          </div>
+                          <div className="rate-source">
+                            Source: {option.source}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div 
+                className="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <RefreshCw className="animate-spin" size={24} />
+                Loading current rates...
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Borrower Input Panel */}
-        <div className="input-panel">
-          <h3>Borrower Scenario</h3>
-          <div className="input-grid">
-            <div className="input-field">
-              <label>Loan Amount</label>
-              <input
-                type="number"
-                value={borrowerData.loan_amount}
-                onChange={(e) => handleInputChange('loan_amount', parseInt(e.target.value) || 0)}
-                className="form-input"
-                min="50000"
-                max="2000000"
-                step="10000"
-              />
-            </div>
-            <div className="input-field">
-              <label>Credit Score</label>
-              <input
-                type="number"
-                value={borrowerData.credit_score}
-                onChange={(e) => handleInputChange('credit_score', parseInt(e.target.value) || 0)}
-                className="form-input"
-                min="300"
-                max="850"
-                step="10"
-              />
-            </div>
-            <div className="input-field">
-              <label>LTV (%)</label>
-              <input
-                type="number"
-                value={borrowerData.ltv}
-                onChange={(e) => handleInputChange('ltv', parseInt(e.target.value) || 0)}
-                className="form-input"
-                min="3"
-                max="100"
-                step="1"
-              />
-            </div>
-            <div className="input-field">
-              <label>Loan Type</label>
-              <select
-                value={borrowerData.loan_type}
-                onChange={(e) => handleInputChange('loan_type', e.target.value)}
-                className="form-select"
-              >
-                {currentRates ? (
-                  Object.keys(currentRates).map(loanType => (
-                    <option key={loanType} value={loanType}>
-                      {loanType.replace(/_/g, ' ').toUpperCase()}
-                    </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="30yr_fixed">30YR FIXED</option>
-                    <option value="15yr_fixed">15YR FIXED</option>
-                    <option value="fha_30yr">FHA 30YR</option>
-                    <option value="va_30yr">VA 30YR</option>
-                  </>
-                )}
-              </select>
-            </div>
+        <motion.div className="input-panel" variants={itemVariants}>
+          <div className="panel-header">
+            <Calculator size={24} className="text-blue-500" />
+            <h3>Borrower Scenario</h3>
           </div>
-        </div>
+          
+          <div className="input-grid">
+            <motion.div className="input-field" variants={itemVariants}>
+              <label>Loan Amount</label>
+              <div className="input-wrapper">
+                <DollarSign size={20} className="input-icon" />
+                <input
+                  type="number"
+                  value={borrowerData.loan_amount}
+                  onChange={(e) => handleInputChange('loan_amount', parseInt(e.target.value) || 0)}
+                  className="form-input"
+                  min="50000"
+                  max="2000000"
+                  step="10000"
+                />
+              </div>
+            </motion.div>
+            
+            <motion.div className="input-field" variants={itemVariants}>
+              <label>Credit Score</label>
+              <div className="input-wrapper">
+                <BarChart3 size={20} className="input-icon" />
+                <input
+                  type="number"
+                  value={borrowerData.credit_score}
+                  onChange={(e) => handleInputChange('credit_score', parseInt(e.target.value) || 0)}
+                  className="form-input"
+                  min="300"
+                  max="850"
+                  step="10"
+                />
+              </div>
+            </motion.div>
+            
+            <motion.div className="input-field" variants={itemVariants}>
+              <label>LTV (%)</label>
+              <div className="input-wrapper">
+                <TrendingUp size={20} className="input-icon" />
+                <input
+                  type="number"
+                  value={borrowerData.ltv}
+                  onChange={(e) => handleInputChange('ltv', parseFloat(e.target.value) || 0)}
+                  className="form-input"
+                  min="50"
+                  max="100"
+                  step="5"
+                />
+              </div>
+            </motion.div>
+            
+            <motion.div className="input-field" variants={itemVariants}>
+              <label>Loan Type</label>
+              <div className="input-wrapper">
+                <FileText size={20} className="input-icon" />
+                <select
+                  value={borrowerData.loan_type}
+                  onChange={(e) => handleInputChange('loan_type', e.target.value)}
+                  className="form-select"
+                >
+                  {currentRates ? (
+                    Object.keys(currentRates).map(loanType => (
+                      <option key={loanType} value={loanType}>
+                        {loanType.replace(/_/g, ' ').toUpperCase()}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="30yr_fixed">30YR FIXED</option>
+                      <option value="15yr_fixed">15YR FIXED</option>
+                      <option value="fha_30yr">FHA 30YR</option>
+                      <option value="va_30yr">VA 30YR</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
 
         {/* Action Tabs */}
-        <div className="action-tabs">
-          <button
+        <motion.div className="action-tabs" variants={itemVariants}>
+          <motion.button
             className={`tab-button ${activeTab === 'quote' ? 'active' : ''}`}
             onClick={() => setActiveTab('quote')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <FaCalculator /> Generate Quote
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'optimize' ? 'active' : ''}`}
-            onClick={() => setActiveTab('optimize')}
+            <Calculator size={16} />
+            Generate Quote
+          </motion.button>
+          
+          <motion.button
+            className={`tab-button ${activeTab === 'optimization' ? 'active' : ''}`}
+            onClick={() => setActiveTab('optimization')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <FaLightbulb /> Optimize Rates
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'analyze' ? 'active' : ''}`}
-            onClick={() => setActiveTab('analyze')}
+            <Zap size={16} />
+            Optimize Rates
+          </motion.button>
+          
+          <motion.button
+            className={`tab-button ${activeTab === 'analysis' ? 'active' : ''}`}
+            onClick={() => setActiveTab('analysis')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <FaChartLine /> AI Analysis
-          </button>
-          <button
+            <BarChart3 size={16} />
+            AI Analysis
+          </motion.button>
+          
+          <motion.button
             className={`tab-button ${activeTab === 'quick' ? 'active' : ''}`}
             onClick={() => setActiveTab('quick')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <FaChartLine /> Quick Analysis
-          </button>
-        </div>
+            <ArrowUpRight size={16} />
+            Quick Analysis
+          </motion.button>
+        </motion.div>
 
         {/* Results Panel */}
-        <div className="results-panel">
-          {activeTab === 'quote' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h3>Rate Quote</h3>
-                <button
-                  onClick={generateRateQuote}
-                  className="btn btn-primary"
-                  disabled={loading}
-                >
-                  {loading ? 'Generating...' : 'Generate Quote'}
-                </button>
-              </div>
+        <motion.div className="results-panel" variants={itemVariants}>
+          <div className="tab-content">
+            <div className="tab-header">
+              <h3>
+                {activeTab === 'quote' && <Calculator size={20} />}
+                {activeTab === 'optimization' && <Zap size={20} />}
+                {activeTab === 'analysis' && <BarChart3 size={20} />}
+                {activeTab === 'quick' && <ArrowUpRight size={20} />}
+                {activeTab === 'quote' && 'Rate Quote'}
+                {activeTab === 'optimization' && 'Rate Optimization'}
+                {activeTab === 'analysis' && 'AI Analysis'}
+                {activeTab === 'quick' && 'Quick Analysis'}
+              </h3>
               
-              {quoteResult && (
-                <div className="quote-results">
-                  <div className="quote-summary">
-                    <div className="quote-rate">
-                      <span className="rate-label">Your Rate:</span>
-                      <span className="rate-value">{formatPercentage(quoteResult.adjusted_rate)}</span>
+              <motion.button
+                onClick={
+                  activeTab === 'quote' ? generateRateQuote :
+                  activeTab === 'optimization' ? optimizeBorrowerRates :
+                  activeTab === 'analysis' ? analyzeRateQuote :
+                  performQuickAnalysis
+                }
+                className="btn btn-primary"
+                disabled={loading}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {loading ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <>
+                    {activeTab === 'quote' && <Calculator size={16} />}
+                    {activeTab === 'optimization' && <Zap size={16} />}
+                    {activeTab === 'analysis' && <BarChart3 size={16} />}
+                    {activeTab === 'quick' && <ArrowUpRight size={16} />}
+                  </>
+                )}
+                {loading ? 'Processing...' : 'Generate'}
+              </motion.button>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {results && results.type === activeTab && (
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* Quote Results */}
+                  {activeTab === 'quote' && results.data?.success && (
+                    <div className="quote-results">
+                      <motion.div className="quote-summary" variants={cardVariants}>
+                        <div className="quote-rate">
+                          <div className="rate-label">Rate</div>
+                          <div className="rate-value">
+                            {formatPercentage(results.data.quote.final_rate)}
+                          </div>
+                        </div>
+                        <div className="quote-payment">
+                          <div className="payment-label">Monthly Payment</div>
+                          <div className="payment-value">
+                            {formatCurrency(results.data.quote.monthly_payment)}
+                          </div>
+                        </div>
+                      </motion.div>
+                      
+                      <motion.div className="quote-details" variants={cardVariants}>
+                        <h4>Quote Breakdown</h4>
+                        <div className="breakdown-grid">
+                          <div className="breakdown-item">
+                            <span>Base Rate</span>
+                            <span>{formatPercentage(results.data.quote.base_rate)}</span>
+                          </div>
+                          <div className="breakdown-item">
+                            <span>Final Rate</span>
+                            <span>{formatPercentage(results.data.quote.final_rate)}</span>
+                          </div>
+                          <div className="breakdown-item">
+                            <span>APR</span>
+                            <span>{formatPercentage(results.data.quote.final_apr)}</span>
+                          </div>
+                          <div className="breakdown-item">
+                            <span>Total Interest</span>
+                            <span>{formatCurrency(results.data.quote.total_interest)}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                      
+                      <motion.div className="eligibility-status" variants={cardVariants}>
+                        <h4>Eligibility Status</h4>
+                        <div className={`status-badge ${results.data.quote.is_eligible ? 'approved' : 'denied'}`}>
+                          {results.data.quote.is_eligible ? (
+                            <>
+                              <CheckCircle size={16} />
+                              Approved
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle size={16} />
+                              Denied
+                            </>
+                          )}
+                        </div>
+                        {results.data.quote.eligibility_reasons && (
+                          <ul className="eligibility-reasons">
+                            {results.data.quote.eligibility_reasons.map((reason: string, index: number) => (
+                              <li key={index}>{reason}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </motion.div>
                     </div>
-                    <div className="quote-payment">
-                      <span className="payment-label">Monthly Payment:</span>
-                      <span className="payment-value">{formatCurrency(quoteResult.monthly_payment)}</span>
+                  )}
+
+                  {/* Optimization Results */}
+                  {activeTab === 'optimization' && results.data?.success && (
+                    <div className="optimization-results">
+                      <motion.div className="optimization-summary" variants={cardVariants}>
+                        <h4>Optimization Summary</h4>
+                        <div className="summary-stats">
+                          <div className="stat-item">
+                            <div className="stat-label">Current Rate</div>
+                            <div className="stat-value">
+                              {formatPercentage(results.data.optimization.current_rate)}
+                            </div>
+                          </div>
+                          <div className="stat-item">
+                            <div className="stat-label">Optimized Rate</div>
+                            <div className="stat-value">
+                              {formatPercentage(results.data.optimization.optimized_rate)}
+                            </div>
+                          </div>
+                          <div className="stat-item">
+                            <div className="stat-label">Monthly Savings</div>
+                            <div className="stat-value">
+                              {formatCurrency(results.data.optimization.monthly_savings)}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
                     </div>
-                  </div>
-                  
-                  <div className="quote-details">
-                    <h4>Rate Breakdown</h4>
-                    <div className="breakdown-grid">
-                      <div className="breakdown-item">
-                        <span>Base Rate:</span>
-                        <span>{formatPercentage(quoteResult.base_rate)}</span>
-                      </div>
-                      <div className="breakdown-item">
-                        <span>Credit Adjustment:</span>
-                        <span>{formatPercentage(quoteResult.llpas.credit_score_adjustment)}</span>
-                      </div>
-                      <div className="breakdown-item">
-                        <span>LTV Adjustment:</span>
-                        <span>{formatPercentage(quoteResult.llpas.ltv_adjustment)}</span>
-                      </div>
-                      <div className="breakdown-item">
-                        <span>Total Adjustment:</span>
-                        <span>{formatPercentage(quoteResult.llpas.total_adjustment)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="eligibility-status">
-                    <h4>Eligibility</h4>
-                    <div className={`status-badge ${quoteResult.eligibility.approved ? 'approved' : 'denied'}`}>
-                      {quoteResult.eligibility.approved ? 'Approved' : 'Not Approved'}
-                    </div>
-                    {quoteResult.eligibility.reasons.length > 0 && (
-                      <ul className="eligibility-reasons">
-                        {quoteResult.eligibility.reasons.map((reason: string, index: number) => (
-                          <li key={index}>{reason}</li>
+                  )}
+
+                  {/* Analysis Results */}
+                  {activeTab === 'analysis' && results.data?.success && (
+                    <div className="analysis-results">
+                      <motion.div className="analysis-explanation" variants={cardVariants}>
+                        <h4>AI Analysis</h4>
+                        <p>{results.data.analysis.explanation}</p>
+                      </motion.div>
+                      
+                      <motion.div className="improvement-suggestions" variants={cardVariants}>
+                        <h4>Improvement Suggestions</h4>
+                        {results.data.analysis.improvement_suggestions?.map((suggestion: string, index: number) => (
+                          <div key={index} className="suggestion-item">
+                            <div className="suggestion-text">{suggestion}</div>
+                          </div>
                         ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'optimize' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h3>Rate Optimization</h3>
-                <button
-                  onClick={optimizeBorrowerRates}
-                  className="btn btn-primary"
-                  disabled={loading}
-                >
-                  {loading ? 'Optimizing...' : 'Optimize Rates'}
-                </button>
-              </div>
-              
-              {optimizationResult && (
-                <div className="optimization-results">
-                  <div className="optimization-summary">
-                    <h4>Optimization Summary</h4>
-                    <div className="summary-stats">
-                      <div className="stat-item">
-                        <span className="stat-label">Best Optimization:</span>
-                        <span className="stat-value">{optimizationResult.summary.best_optimization}</span>
-                      </div>
-                      <div className="stat-item">
-                        <span className="stat-label">Total Savings:</span>
-                        <span className="stat-value">{formatCurrency(optimizationResult.summary.total_potential_savings)}</span>
-                      </div>
+                      </motion.div>
                     </div>
-                  </div>
-                  
-                  <div className="optimization-details">
-                    <h4>Optimization Options</h4>
-                    {Object.entries(optimizationResult.optimizations).map(([type, opt]: [string, any]) => (
-                      <div key={type} className="optimization-option">
-                        <h5>{type.replace(/_/g, ' ').toUpperCase()}</h5>
-                        <div className="option-details">
-                          <div className="option-change">
-                            <span>Current: {opt.current}</span>
-                            <span>Recommended: {opt.recommended}</span>
-                          </div>
-                          <div className="option-benefits">
-                            <div>Rate Improvement: {formatPercentage(opt.rate_improvement)}</div>
-                            <div>Monthly Savings: {formatCurrency(opt.monthly_savings)}</div>
-                          </div>
-                          <div className="option-feasibility">
-                            <strong>Feasibility:</strong> {opt.feasibility}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+                  )}
 
-          {activeTab === 'analyze' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h3>AI Analysis</h3>
-                <button
-                  onClick={analyzeRateQuote}
-                  className="btn btn-primary"
-                  disabled={loading || !quoteResult}
-                >
-                  {loading ? 'Analyzing...' : 'Analyze Quote'}
-                </button>
-              </div>
-              
-              {analysisResult && (
-                <div className="analysis-results">
-                  <div className="analysis-explanation">
-                    <h4>AI Explanation</h4>
-                    <p>{analysisResult.explanation}</p>
-                  </div>
-                  
-                  <div className="improvement-suggestions">
-                    <h4>Improvement Suggestions</h4>
-                    {analysisResult.improvement_suggestions.map((suggestion: any, index: number) => (
-                      <div key={index} className="suggestion-item">
-                        <div className="suggestion-text">{suggestion.suggestion}</div>
-                        <div className="suggestion-impact">Impact: {suggestion.impact}</div>
-                        <div className="suggestion-action">Action: {suggestion.action}</div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="rate-breakdown">
-                    <h4>Rate Breakdown</h4>
-                    <div className="breakdown-details">
-                      <div className="breakdown-base">
-                        Base Rate: {formatPercentage(analysisResult.rate_breakdown.base_rate)}
-                      </div>
-                      {analysisResult.rate_breakdown.adjustments.map((adj: any, index: number) => (
-                        <div key={index} className="breakdown-adjustment">
-                          {adj.type}: {formatPercentage(adj.amount)} ({adj.reason})
-                        </div>
-                      ))}
-                      <div className="breakdown-final">
-                        Final Rate: {formatPercentage(analysisResult.rate_breakdown.final_rate)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="market-context">
-                    <h4>Market Context</h4>
-                    <p>{analysisResult.market_context}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'quick' && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h3>Quick Analysis</h3>
-                <button
-                  onClick={performQuickAnalysis}
-                  className="btn btn-primary"
-                  disabled={loading}
-                >
-                  {loading ? 'Analyzing...' : 'Run Quick Analysis'}
-                </button>
-              </div>
-              
-              {quoteResult && optimizationResult && analysisResult && (
-                <div className="quick-analysis-results">
-                  <div className="quick-summary">
-                    <h4>Complete Analysis Summary</h4>
-                    <div className="summary-cards">
-                      <div className="summary-card">
-                        <h5>Current Quote</h5>
-                        <div className="card-content">
-                          <div>Rate: {formatPercentage(quoteResult.adjusted_rate)}</div>
-                          <div>Payment: {formatCurrency(quoteResult.monthly_payment)}</div>
-                          <div className={`status ${quoteResult.eligibility.approved ? 'approved' : 'denied'}`}>
-                            {quoteResult.eligibility.approved ? 'Approved' : 'Not Approved'}
+                  {/* Quick Analysis Results */}
+                  {activeTab === 'quick' && results.data?.success && (
+                    <div className="quick-analysis-results">
+                      <motion.div className="quick-summary" variants={cardVariants}>
+                        <h4>Quick Analysis Summary</h4>
+                        <div className="summary-cards">
+                          <div className="summary-card">
+                            <h5>Rate Analysis</h5>
+                            <div className="card-content">
+                              <div>Current Rate: {formatPercentage(results.data.quote.final_rate)}</div>
+                              <div>APR: {formatPercentage(results.data.quote.final_apr)}</div>
+                              <div className={`status ${results.data.quote.is_eligible ? 'approved' : 'denied'}`}>
+                                {results.data.quote.is_eligible ? 'Eligible' : 'Not Eligible'}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="summary-card">
-                        <h5>Optimization Potential</h5>
-                        <div className="card-content">
-                          <div>Best Option: {optimizationResult.summary.best_optimization}</div>
-                          <div>Total Savings: {formatCurrency(optimizationResult.summary.total_potential_savings)}</div>
-                          <div>Actions: {optimizationResult.summary.recommended_actions.length}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="summary-card">
-                        <h5>AI Insights</h5>
-                        <div className="card-content">
-                          <div>Suggestions: {analysisResult.improvement_suggestions.length}</div>
-                          <div>Market Context: Available</div>
-                          <div>Rate Breakdown: Complete</div>
-                        </div>
-                      </div>
+                      </motion.div>
                     </div>
-                  </div>
-                </div>
+                  )}
+                </motion.div>
               )}
-            </div>
-          )}
-        </div>
+            </AnimatePresence>
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

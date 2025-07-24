@@ -8,34 +8,63 @@
   min-height: 100vh;
 }
 
-/* Modern Header */
+/* Modern Professional Header */
 .dashboard-header {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 24px 32px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  padding: 32px 40px;
+  margin-bottom: 32px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -1px rgba(0, 0, 0, 0.04);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  min-height: 100px;
+  gap: 32px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.dashboard-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+  opacity: 0.8;
+}
+
+.dashboard-header:hover {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.12), 0 8px 20px -2px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
 }
 
 .header-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .dashboard-container h2 {
-  margin: 0 0 8px 0;
+  margin: 0;
   color: #0f172a;
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
   display: flex;
   align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.dashboard-container h2::before {
+  content: '📋';
+  font-size: 32px;
+  opacity: 0.8;
 }
 
 .dashboard-container p {
@@ -43,13 +72,73 @@
   color: #64748b;
   font-size: 16px;
   line-height: 1.6;
-  font-weight: 400;
+  font-weight: 500;
+  max-width: 500px;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* Professional Header Buttons */
+.header-actions .action-btn {
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.header-actions .action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.header-actions .action-btn:hover::before {
+  left: 100%;
+}
+
+.header-actions .action-btn:first-child {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.header-actions .action-btn:first-child:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+}
+
+.header-actions .action-btn:last-child {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.header-actions .action-btn:last-child:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
 }
 
 /* Modern Controls Panel */
@@ -484,15 +573,23 @@
   
   .dashboard-header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 20px 24px;
+    align-items: stretch;
+    gap: 24px;
+    padding: 24px 28px;
     min-height: auto;
   }
   
   .header-actions {
     justify-content: space-between;
     width: 100%;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .header-actions .action-btn {
+    min-width: 100px;
+    padding: 10px 20px;
+    font-size: 13px;
   }
   
   .dashboard-container h2 {
@@ -534,9 +631,15 @@
   
   .dashboard-header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px 20px;
+    align-items: stretch;
+    gap: 20px;
+    padding: 20px 24px;
+  }
+  
+  .header-actions .action-btn {
+    min-width: 90px;
+    padding: 8px 16px;
+    font-size: 12px;
   }
   
   .dashboard-container h2 {
