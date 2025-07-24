@@ -6,7 +6,7 @@
 
 .tooltip-bubble {
   position: absolute;
-  z-index: 9999;
+  z-index: 99999;
   opacity: 0;
   pointer-events: none;
   background: rgba(30, 30, 30, 0.95);
