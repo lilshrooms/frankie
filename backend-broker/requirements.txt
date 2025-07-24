@@ -14,7 +14,7 @@ google-auth-httplib2==0.1.1
 google-api-python-client==2.108.0
 pdfplumber==0.10.3
 pytesseract==0.3.10
-pillow==10.1.0
+pillow>=10.0.0
 pymupdf==1.23.8
 
 # AI and analysis
@@ -27,8 +27,7 @@ schedule==1.2.0
 
 # Database
 psycopg2-binary==2.9.10  # PostgreSQL adapter for Supabase
-# sqlite3  # Built-in, no need to install
 
-# Development
-pytest==7.4.3
-pytest-asyncio==0.21.1 
+# Development (optional for production)
+# pytest==7.4.3
+# pytest-asyncio==0.21.1 
