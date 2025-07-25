@@ -1,150 +1,273 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
-import { FaPlus, FaUpload, FaChartLine, FaCog, FaEnvelope } from 'react-icons/fa';
+import { FaPlus, FaEye, FaEdit, FaTrash, FaDownload, FaUpload } from 'react-icons/fa';
 import Tooltip from './Tooltip';
 import { useToast } from './ToastContainer';
+import ConfirmModal from './ConfirmModal';
+
+interface LoanFile {
+  id: number;
+  borrower: string;
+  status: string;
+  lastActivity: string;
+  documents: string[];
+  priority: 'high' | 'medium' | 'low';
+}
 
 const Dashboard: React.FC = () => {
   const { showSuccess, showError, showWarning, showInfo } = useToast();
-  const [activeSection, setActiveSection] = useState<string>('overview');
+  const [loanFiles, setLoanFiles] = useState<LoanFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showNewLoan, setShowNewLoan] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<LoanFile | null>(null);
+  const [form, setForm] = useState({
+    borrower: '',
+    status: 'Incomplete',
+    priority: 'medium' as const
+  });
 
-  const handleQuickAction = (action: string) => {
-    showInfo('Action', `${action} functionality coming soon!`);
+  useEffect(() => {
+    loadLoanFiles();
+  }, []);
+
+  const loadLoanFiles = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/loan-files');
+      if (response.ok) {
+        const data = await response.json();
+        setLoanFiles(data);
+      } else {
+        // Mock data for demonstration
+        setLoanFiles([
+          {
+            id: 1,
+            borrower: 'John Smith',
+            status: 'Incomplete',
+            lastActivity: '2024-01-15',
+            documents: ['Tax Return', 'Pay Stub'],
+            priority: 'high'
+          },
+          {
+            id: 2,
+            borrower: 'Sarah Johnson',
+            status: 'Under Review',
+            lastActivity: '2024-01-14',
+            documents: ['W2', 'Bank Statement'],
+            priority: 'medium'
+          },
+          {
+            id: 3,
+            borrower: 'Mike Wilson',
+            status: 'Complete',
+            lastActivity: '2024-01-13',
+            documents: ['All Documents'],
+            priority: 'low'
+          }
+        ]);
+      }
+    } catch (error) {
+      showError('Error', 'Failed to load loan files');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleDelete = async (file: LoanFile) => {
+    setSelectedFile(file);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedFile) return;
+    
+    try {
+      const response = await fetch(`/api/loan-files/${selectedFile.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setLoanFiles(loanFiles.filter(f => f.id !== selectedFile.id));
+        showSuccess('Success', 'Loan file deleted successfully');
+      } else {
+        showError('Error', 'Failed to delete loan file');
+      }
+    } catch (error) {
+      showError('Error', 'Failed to delete loan file');
+    } finally {
+      setShowDeleteModal(false);
+      setSelectedFile(null);
+    }
+  };
+
+  const handleAnalyze = async (file: LoanFile) => {
+    try {
+      showInfo('Analysis', `Starting AI analysis for ${file.borrower}...`);
+      // Mock analysis process
+      setTimeout(() => {
+        showSuccess('Analysis Complete', `AI analysis completed for ${file.borrower}`);
+      }, 2000);
+    } catch (error) {
+      showError('Error', 'Failed to start analysis');
+    }
+  };
+
+  const filteredFiles = loanFiles.filter(file => {
+    const matchesSearch = file.borrower.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || file.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'complete': return 'status-badge complete';
+      case 'under review': return 'status-badge under-review';
+      case 'incomplete': return 'status-badge incomplete';
+      case 'pending docs': return 'status-badge pending-docs';
+      case 'docs needed': return 'status-badge docs-needed';
+      default: return 'status-badge';
+    }
+  };
+
+  const getPriorityClass = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'priority-high';
+      case 'medium': return 'priority-medium';
+      case 'low': return 'priority-low';
+      default: return '';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="loading">Loading loan files...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header */}
+      {/* Header */}
       <div className="dashboard-header">
         <div className="header-content">
-          <h2>Frankie Dashboard</h2>
-          <p>AI-powered loan assistant - streamline your mortgage workflow</p>
+          <h2>Loan Files Dashboard</h2>
+          <p>Manage and track all loan applications</p>
         </div>
         <div className="header-actions">
-          <Tooltip content="View system notifications and alerts">
-            <button
-              className="action-btn notification-btn"
-              onClick={() => handleQuickAction('Notifications')}
-              aria-label="Notifications"
-            >
-              <FaEnvelope />
-              <span>Notifications</span>
+          <Tooltip content="Upload new documents">
+            <button className="action-btn" onClick={() => setShowNewLoan(true)}>
+              <FaUpload />
+              <span>Upload</span>
             </button>
           </Tooltip>
-          <Tooltip content="Configure system settings and preferences">
-            <button
-              className="action-btn settings-btn"
-              onClick={() => handleQuickAction('Settings')}
-              aria-label="Settings"
-            >
-              <FaCog />
-              <span>Settings</span>
+          <Tooltip content="Create new loan file">
+            <button className="action-btn" onClick={() => setShowNewLoan(true)}>
+              <FaPlus />
+              <span>New Loan</span>
             </button>
           </Tooltip>
         </div>
       </div>
 
-      {/* Quick Actions Grid */}
-      <div className="quick-actions-grid">
-        <div className="action-card primary-action">
-          <div className="action-icon">
-            <FaUpload />
+      {/* Controls */}
+      <div className="dashboard-controls">
+        <div className="search-filter-group">
+          <div className="search-container">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search by borrower name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="dashboard-search"
+            />
           </div>
-          <div className="action-content">
-            <h3>Upload Documents</h3>
-            <p>Process loan documents with AI analysis</p>
-            <button 
-              className="action-card-btn primary"
-              onClick={() => handleQuickAction('Upload Documents')}
+          <div className="filter-container">
+            <span className="filter-icon">⚙️</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="dashboard-filter"
             >
-              Upload Now
-            </button>
-          </div>
-        </div>
-
-        <div className="action-card">
-          <div className="action-icon">
-            <FaChartLine />
-          </div>
-          <div className="action-content">
-            <h3>Rate Analysis</h3>
-            <p>Generate and compare mortgage rates</p>
-            <button 
-              className="action-card-btn"
-              onClick={() => handleQuickAction('Rate Analysis')}
-            >
-              Analyze Rates
-            </button>
-          </div>
-        </div>
-
-        <div className="action-card">
-          <div className="action-icon">
-            <FaPlus />
-          </div>
-          <div className="action-content">
-            <h3>New Application</h3>
-            <p>Start a new loan application</p>
-            <button 
-              className="action-card-btn"
-              onClick={() => handleQuickAction('New Application')}
-            >
-              Create New
-            </button>
+              <option value="all">All Status</option>
+              <option value="Incomplete">Incomplete</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Complete">Complete</option>
+              <option value="Pending Docs">Pending Docs</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="stats-overview">
-        <div className="stat-card">
-          <div className="stat-number">12</div>
-          <div className="stat-label">Active Applications</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">8</div>
-          <div className="stat-label">Pending Reviews</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">95%</div>
-          <div className="stat-label">Completion Rate</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">2.3</div>
-          <div className="stat-label">Avg. Processing Days</div>
-        </div>
+      {/* Loan Files Table */}
+      <div className="dashboard-table-wrapper">
+        <table className="loan-table">
+          <thead>
+            <tr>
+              <th>Borrower</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Last Activity</th>
+              <th>Documents</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredFiles.map((file) => (
+              <tr key={file.id} className={`priority-row ${getPriorityClass(file.priority)}`}>
+                <td>{file.borrower}</td>
+                <td>
+                  <span className={getStatusBadgeClass(file.status)}>
+                    {file.status}
+                  </span>
+                </td>
+                <td>
+                  <span className={`priority-badge ${getPriorityClass(file.priority)}`}>
+                    {file.priority}
+                  </span>
+                </td>
+                <td>{file.lastActivity}</td>
+                <td>{file.documents.join(', ')}</td>
+                <td className="actions-cell">
+                  <Tooltip content="View details">
+                    <button className="action-btn" onClick={() => handleAnalyze(file)}>
+                      <FaEye />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Edit loan file">
+                    <button className="action-btn" onClick={() => handleAnalyze(file)}>
+                      <FaEdit />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Download documents">
+                    <button className="action-btn" onClick={() => handleAnalyze(file)}>
+                      <FaDownload />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Delete loan file">
+                    <button className="action-btn" onClick={() => handleDelete(file)}>
+                      <FaTrash />
+                    </button>
+                  </Tooltip>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Recent Activity */}
-      <div className="recent-activity">
-        <h3>Recent Activity</h3>
-        <div className="activity-list">
-          <div className="activity-item">
-            <div className="activity-icon">📄</div>
-            <div className="activity-content">
-              <div className="activity-title">Document uploaded</div>
-              <div className="activity-desc">Pay stub for John Smith's application</div>
-              <div className="activity-time">2 hours ago</div>
-            </div>
-          </div>
-          <div className="activity-item">
-            <div className="activity-icon">💰</div>
-            <div className="activity-content">
-              <div className="activity-title">Rate quote generated</div>
-              <div className="activity-desc">3.75% for $450k conventional loan</div>
-              <div className="activity-time">4 hours ago</div>
-            </div>
-          </div>
-          <div className="activity-item">
-            <div className="activity-icon">🤖</div>
-            <div className="activity-content">
-              <div className="activity-title">AI analysis completed</div>
-              <div className="activity-desc">Tax returns analyzed for Sarah Johnson</div>
-              <div className="activity-time">1 day ago</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={showDeleteModal}
+        onCancel={() => setShowDeleteModal(false)}
+        onConfirm={confirmDelete}
+        title="Delete Loan File"
+        message={`Are you sure you want to delete the loan file for ${selectedFile?.borrower}? This action cannot be undone.`}
+      />
     </div>
   );
 };

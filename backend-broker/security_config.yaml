@@ -1,0 +1,152 @@
+# Frankie Security Configuration
+# GLBA Safeguards Rule, ISO 27001, and NIST SP 800-53 Compliance
+
+security:
+  # Administrative Safeguards
+  administrative:
+    security_officer: "appointed"
+    risk_assessments: "quarterly"
+    security_plan: "documented"
+    employee_training: "monthly"
+    vendor_assessment: "annual"
+    
+  # Technical Safeguards
+  technical:
+    encryption:
+      pii_at_rest: true
+      pii_in_transit: true
+      algorithm: "AES-256-GCM"
+      key_rotation: "90_days"
+    
+    authentication:
+      mfa_required: true
+      password_complexity:
+        min_length: 12
+        require_uppercase: true
+        require_lowercase: true
+        require_numbers: true
+        require_special_chars: true
+      session_timeout: 30  # minutes
+      max_login_attempts: 5
+      lockout_duration: 15  # minutes
+    
+    access_control:
+      rbac_enabled: true
+      least_privilege: true
+      role_definitions:
+        admin:
+          permissions: ["read", "write", "delete", "admin", "audit"]
+          description: "Full system access"
+        broker:
+          permissions: ["read", "write"]
+          description: "Broker access to loan files"
+        processor:
+          permissions: ["read", "write"]
+          description: "Loan processor access"
+        viewer:
+          permissions: ["read"]
+          description: "Read-only access"
+    
+    monitoring:
+      audit_logging: true
+      log_retention: 90  # days
+      real_time_monitoring: true
+      intrusion_detection: true
+      vulnerability_scanning: "weekly"
+    
+  # Physical Safeguards
+  physical:
+    office_access: "restricted"
+    hardware_security: "encrypted"
+    document_disposal: "secure"
+    device_management: "tracked"
+    
+  # Data Protection
+  data_protection:
+    pii_fields:
+      - "borrower"
+      - "broker"
+      - "ssn"
+      - "email"
+      - "phone"
+      - "address"
+      - "bank_account"
+      - "credit_card"
+      - "income"
+      - "employer"
+    
+    data_retention:
+      loan_files: 7  # years
+      email_communications: 3  # years
+      audit_logs: 7  # years
+      rate_data: 2  # years
+      conversations: 3  # years
+    
+    data_classification:
+      public: "non-sensitive information"
+      internal: "business information"
+      confidential: "loan application data"
+      restricted: "PII and financial data"
+    
+  # Incident Response
+  incident_response:
+    response_plan: "documented"
+    notification_timeline: "24_hours"
+    containment_procedures: "defined"
+    recovery_process: "tested"
+    lessons_learned: "documented"
+    
+  # Compliance
+  compliance:
+    glba_safeguards: true
+    iso_27001_aligned: true
+    nist_800_53_aligned: true
+    regular_audits: "quarterly"
+    penetration_testing: "annual"
+    security_assessments: "biannual"
+    
+  # API Security
+  api_security:
+    rate_limiting: true
+    input_validation: true
+    output_encoding: true
+    secure_headers: true
+    cors_policy: "restricted"
+    api_key_rotation: "90_days"
+    
+  # Environment Variables (Production)
+  environment:
+    required_vars:
+      - "JWT_SECRET_KEY"
+      - "ENCRYPTION_KEY"
+      - "DATABASE_URL"
+      - "GMAIL_ADDON_API_KEY"
+      - "GEMINI_API_KEY"
+      - "GOOGLE_APPLICATION_CREDENTIALS"
+    
+    optional_vars:
+      - "PASSWORD_SALT"
+      - "API_KEY_SALT"
+      - "VALID_API_KEYS"
+      - "SECURITY_LOG_LEVEL"
+    
+  # Monitoring and Alerting
+  monitoring:
+    security_events:
+      - "failed_login_attempts"
+      - "unauthorized_access"
+      - "data_access_patterns"
+      - "system_changes"
+      - "api_usage_anomalies"
+    
+    alert_channels:
+      - "email"
+      - "sms"
+      - "slack"
+      - "pagerduty"
+    
+    thresholds:
+      failed_logins: 5
+      suspicious_activity: "immediate"
+      data_breach: "immediate"
+      system_outage: "5_minutes" 

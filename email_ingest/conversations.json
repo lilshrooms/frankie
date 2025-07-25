@@ -234,5 +234,206 @@
     "received_documents": [],
     "conversation_turn": 1,
     "previous_analyses": []
+  },
+  "1983e4e3b8f6ef7b": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e4e3b8f6ef7b",
+    "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "**QUALIFICATION STATUS**\nIncomplete. While the 2024 tax return provides detailed income information, a full analysis cannot be completed. Critical information, such as a formal loan application, property details, and asset documentation, has not yet been provided.\n\n**KEY FINDINGS**\n**Borrower Information:**\n*   **Number of Borrowers:** 2\n*   **Names:** Xinwei Tan and Natalie M Tan\n*   **Marital Status:** Married filing jointly\n*   **Address:** 1 N 4th Pl, Apt 26M, Brooklyn, NY 11249-3347\n*   **O...",
+    "requested_documents": [],
+    "received_documents": [
+      "tax_return",
+      "tax_return",
+      "tax_return",
+      "tax_return"
+    ],
+    "conversation_turn": 5,
+    "previous_analyses": []
+  },
+  "1983e2e93a1e0680": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e2e93a1e0680",
+    "borrower_email": "Jeffrey Becker <jeff.becker@antler.co>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983df62c7bcd0bf": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983df62c7bcd0bf",
+    "borrower_email": "\"Jessica Sophia Wong (Yorkseed Founder)\" <usr-CxxDTGvJFPdMIEy@user.luma-mail.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "197f4edd68f39393": {
+    "loan_file_id": null,
+    "gmail_thread_id": "197f4edd68f39393",
+    "borrower_email": "Silvia Palmer <silvia@trustbusinessqualify.site>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983d78b6a65f6dc": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983d78b6a65f6dc",
+    "borrower_email": "Docusign <docusign@e.docusign.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "19813696832fce0c": {
+    "loan_file_id": null,
+    "gmail_thread_id": "19813696832fce0c",
+    "borrower_email": "Georgey Tishin <georgey@borksdirectlead.co>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983ca0dee15fbda": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983ca0dee15fbda",
+    "borrower_email": "Ian Tan <ian@yourhomebase.co>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983c65d97a6902c": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983c65d97a6902c",
+    "borrower_email": "LinkedIn <notifications-noreply@linkedin.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983b26fec725fce": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983b26fec725fce",
+    "borrower_email": "Microsoft Clarity <maccount@microsoft.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983e588723b3066": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e588723b3066",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983e59c1130f636": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e59c1130f636",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983e5c93cfdc202": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e5c93cfdc202",
+    "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983e68eed3e5d77": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e68eed3e5d77",
+    "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
+    "conversation_state": "underwriting",
+    "conversation_summary": "Here is the analysis of the mortgage loan request.\n\n**QUALIFICATION STATUS**\nINCOMPLETE\n\n**KEY FINDINGS**\n*   **Borrowers:** Xinwei Tan, Natalie M. Tan\n*   **Social Security Numbers:** 536-71-6214 (Xinwei Tan), 535-25-8269 (Natalie M. Tan)\n*   **Dates of Birth:** 01/11/1989 (Xinwei Tan), 09/26/1991 (Natalie M. Tan)\n*   **Contact Information:** (929) 424-0156, IANTAN89@OUTLOOK.COM\n*   **Current Address:** 1 N 4th Pl, Apt 26M, Brooklyn, NY 11249\n*   **Occupations:** Product Management (Xinwei Tan)...",
+    "requested_documents": [],
+    "received_documents": [
+      "tax_return",
+      "tax_return",
+      "tax_return",
+      "tax_return",
+      "tax_return"
+    ],
+    "conversation_turn": 6,
+    "previous_analyses": []
+  },
+  "1983e6a1c478591b": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e6a1c478591b",
+    "borrower_email": "Ian Tan <thelittlemushrooms@gmail.com>",
+    "conversation_state": "waiting_docs",
+    "conversation_summary": "**QUALIFICATION STATUS**\nAnalysis in progress\n\n**KEY FINDINGS (only stated facts)**\n\n*   **Applicant Information:**\n    *   Name on Pay Stub: inwei Tan\n    *   Name on Bank Statement: XINWEI TAN\n    *   Address on Pay Stub (New York, NY): 50 East 28th Street, 18, New York, NY 10016\n    *   Address on Bank Statement (Seattle, WA): 1525 9TH AVE APT 3207, SEATTLE WA 98101\n\n*   **Income (Pay Stub dated \"og/s0/2022\"):**\n    *   Employer: PRIME DIGITAL LLC\n    *   Current Gross Pay: $70,000.00 (This a...",
+    "requested_documents": [],
+    "received_documents": [
+      "pay_stub",
+      "bank_statement"
+    ],
+    "conversation_turn": 2,
+    "previous_analyses": []
+  },
+  "1983e6c9fde03b89": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e6c9fde03b89",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983e6e105e32e61": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e6e105e32e61",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
+  },
+  "1983e6f3baf411ae": {
+    "loan_file_id": null,
+    "gmail_thread_id": "1983e6f3baf411ae",
+    "borrower_email": "ian@yourhomebase.co",
+    "conversation_state": "initial_request",
+    "conversation_summary": "",
+    "requested_documents": [],
+    "received_documents": [],
+    "conversation_turn": 1,
+    "previous_analyses": []
   }
 }

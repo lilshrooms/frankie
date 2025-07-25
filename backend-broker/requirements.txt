@@ -7,6 +7,12 @@ pyyaml==6.0.1
 requests==2.31.0
 python-dotenv==1.0.0
 
+# Security and Authentication
+cryptography==41.0.7
+PyJWT==2.8.0
+passlib==1.7.4
+bcrypt==4.1.2
+
 # Email and document processing
 google-auth==2.23.4
 google-auth-oauthlib==1.1.0

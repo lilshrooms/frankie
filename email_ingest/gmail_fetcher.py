@@ -92,10 +92,10 @@ def get_gmail_service():
 def fetch_recent_emails():
     service = get_gmail_service()
     
-    # Get emails from the last 6 hours (including read ones for testing)
+    # Query for RECENT emails from the last 2 hours (including read ones for testing)
     import datetime
-    six_hours_ago = datetime.datetime.now() - datetime.timedelta(hours=6)
-    date_query = six_hours_ago.strftime('%Y/%m/%d')
+    two_hours_ago = datetime.datetime.now() - datetime.timedelta(hours=2)
+    date_query = two_hours_ago.strftime('%Y/%m/%d')
     
     # Query for recent emails (including read ones for testing)
     query = f'after:{date_query}'
@@ -457,12 +457,19 @@ if __name__ == '__main__':
         
         # FIXED: Check for AI response emails to prevent processing loops
         email_body = email_data['body'] or ""
-        if ('PRELIMINARY LOAN ASSESSMENT' in email_body or 
-            'QUALIFICATION STATUS' in email_body or
-            'This is an automated preliminary assessment' in email_body):
+        has_ai_content = ('PRELIMINARY LOAN ASSESSMENT' in email_body and 
+                         'QUALIFICATION STATUS' in email_body and
+                         'This is an automated preliminary assessment' in email_body)
+        
+        # Allow processing if there are new attachments, even if it contains AI content
+        has_new_attachments = len(email_data.get('attachments', [])) > 0
+        
+        if has_ai_content and not has_new_attachments:
             print(f"[SKIP] Email contains AI response content, skipping to prevent processing loop")
             mark_email_as_read(email_data['id'])
             continue
+        elif has_ai_content and has_new_attachments:
+            print(f"[PROCESS] Email contains AI content but has new attachments, processing attachments")
         
         # Additional safety check for email addresses
         from_email = email_data['from'] or ""
@@ -564,6 +571,9 @@ if __name__ == '__main__':
             new_document_types,
             analysis[:500] + "..." if len(analysis) > 500 else analysis  # Truncate for summary
         )
+        
+        # Save email and analysis to database
+        conversation_manager.save_email_to_database(conversation_context, email_data, analysis)
         
         # Send response email
         print(f"[EMAIL] Sending response to: {email_data['from']} | Subject: Re: {email_data['subject']}")

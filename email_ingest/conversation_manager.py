@@ -7,9 +7,21 @@ Handles conversation tracking, context management, and state transitions
 import json
 import re
 import os
+import sys
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
+
+# Add backend-broker to path for database imports
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend-broker'))
+
+try:
+    from database import SessionLocal
+    from models import LoanFile, EmailMessage, AIAnalysis, Attachment
+    DATABASE_AVAILABLE = True
+except ImportError as e:
+    print(f"Database not available: {e}")
+    DATABASE_AVAILABLE = False
 
 @dataclass
 class ConversationContext:
@@ -41,6 +53,14 @@ class ConversationManager:
         self.conversation_cache = {}  # thread_id -> ConversationContext
         self._load_conversations()
     
+    def _get_db_session(self):
+        """Get database session if available"""
+        if self.db_session:
+            return self.db_session
+        elif DATABASE_AVAILABLE:
+            return SessionLocal()
+        return None
+    
     def _load_conversations(self):
         """Load conversations from persistence file"""
         if os.path.exists(self.persistence_file):
@@ -55,7 +75,7 @@ class ConversationManager:
                 print(f"Error loading conversations: {e}")
     
     def _save_conversations(self):
-        """Save conversations to persistence file"""
+        """Save conversations to persistence file and database"""
         try:
             data = {}
             for thread_id, context in self.conversation_cache.items():
@@ -63,8 +83,54 @@ class ConversationManager:
             
             with open(self.persistence_file, 'w') as f:
                 json.dump(data, f, indent=2)
+                
+            # Also save to database if available
+            self._save_to_database()
         except Exception as e:
             print(f"Error saving conversations: {e}")
+    
+    def _save_to_database(self):
+        """Save conversation data to database"""
+        if not DATABASE_AVAILABLE:
+            return
+            
+        db = self._get_db_session()
+        if not db:
+            return
+            
+        try:
+            for thread_id, context in self.conversation_cache.items():
+                # Check if loan file exists
+                loan_file = db.query(LoanFile).filter_by(gmail_thread_id=thread_id).first()
+                
+                if loan_file:
+                    # Update existing loan file
+                    loan_file.conversation_state = context.conversation_state
+                    loan_file.conversation_summary = context.conversation_summary
+                    loan_file.requested_documents = context.requested_documents
+                    loan_file.received_documents = context.received_documents
+                    loan_file.updated_at = datetime.utcnow()
+                else:
+                    # Create new loan file
+                    loan_file = LoanFile(
+                        gmail_thread_id=thread_id,
+                        borrower=context.borrower_email,
+                        conversation_state=context.conversation_state,
+                        conversation_summary=context.conversation_summary,
+                        requested_documents=context.requested_documents,
+                        received_documents=context.received_documents,
+                        status='Incomplete'
+                    )
+                    db.add(loan_file)
+                
+            db.commit()
+            print(f"Saved {len(self.conversation_cache)} conversations to database")
+        except Exception as e:
+            print(f"Error saving to database: {e}")
+            db.rollback()
+        finally:
+            if not self.db_session:  # Only close if we created the session
+                db.close()
     
     def get_or_create_conversation(self, gmail_thread_id: str, borrower_email: str) -> ConversationContext:
         """Get existing conversation or create new one"""
@@ -74,35 +140,41 @@ class ConversationManager:
             return context
         
         # Try to find existing conversation in database
-        if self.db_session:
-            from models import LoanFile
-            existing_loan = self.db_session.query(LoanFile).filter_by(
-                gmail_thread_id=gmail_thread_id
-            ).first()
-            
-            if existing_loan:
-                context = ConversationContext(
-                    loan_file_id=existing_loan.id,
-                    gmail_thread_id=gmail_thread_id,
-                    borrower_email=borrower_email,
-                    conversation_state=existing_loan.conversation_state,
-                    conversation_summary=existing_loan.conversation_summary or "",
-                    requested_documents=existing_loan.requested_documents or [],
-                    received_documents=existing_loan.received_documents or [],
-                    conversation_turn=len(existing_loan.analyses) + 1
-                )
-                self.conversation_cache[gmail_thread_id] = context
-                self._save_conversations()
-                return context
+        if DATABASE_AVAILABLE:
+            db = self._get_db_session()
+            if db:
+                try:
+                    existing_loan = db.query(LoanFile).filter_by(gmail_thread_id=gmail_thread_id).first()
+                    
+                    if existing_loan:
+                        # Get conversation turn from analyses count
+                        analyses_count = db.query(AIAnalysis).filter_by(loan_file_id=existing_loan.id).count()
+                        
+                        context = ConversationContext(
+                            loan_file_id=existing_loan.id,
+                            gmail_thread_id=gmail_thread_id,
+                            borrower_email=borrower_email,
+                            conversation_state=existing_loan.conversation_state,
+                            conversation_summary=existing_loan.conversation_summary or "",
+                            requested_documents=existing_loan.requested_documents or [],
+                            received_documents=existing_loan.received_documents or [],
+                            conversation_turn=analyses_count + 1
+                        )
+                        self.conversation_cache[gmail_thread_id] = context
+                        self._save_conversations()
+                        return context
+                except Exception as e:
+                    print(f"Error querying database: {e}")
+                finally:
+                    if not self.db_session:  # Only close if we created the session
+                        db.close()
         
         # Create new conversation
         context = ConversationContext(
             gmail_thread_id=gmail_thread_id,
-            borrower_email=borrower_email,
-            conversation_state='initial_request'
+            borrower_email=borrower_email
         )
         self.conversation_cache[gmail_thread_id] = context
-        self._save_conversations()
         print(f"[CONVERSATION] Created new conversation: Turn {context.conversation_turn} | State: {context.conversation_state}")
         return context
     
@@ -123,18 +195,82 @@ class ConversationManager:
         print(f"[CONVERSATION] Documents received: {context.received_documents}")
         
         # Update database if available
-        if self.db_session and context.loan_file_id:
-            from models import LoanFile
-            loan_file = self.db_session.query(LoanFile).filter_by(id=context.loan_file_id).first()
-            if loan_file:
-                loan_file.conversation_state = new_state
-                loan_file.conversation_summary = context.conversation_summary
-                loan_file.received_documents = context.received_documents
-                loan_file.last_activity = datetime.now()
-                self.db_session.commit()
+        if DATABASE_AVAILABLE and context.loan_file_id:
+            db = self._get_db_session()
+            if db:
+                try:
+                    loan_file = db.query(LoanFile).filter_by(id=context.loan_file_id).first()
+                    if loan_file:
+                        loan_file.conversation_state = new_state
+                        loan_file.conversation_summary = context.conversation_summary
+                        loan_file.received_documents = context.received_documents
+                        loan_file.last_activity = datetime.utcnow()
+                        db.commit()
+                except Exception as e:
+                    print(f"Error updating database: {e}")
+                    db.rollback()
+                finally:
+                    if not self.db_session:  # Only close if we created the session
+                        db.close()
         
         # Save to persistence file
         self._save_conversations()
+    
+    def save_email_to_database(self, context: ConversationContext, email_data: Dict, analysis: str):
+        """Save email message and AI analysis to database"""
+        if not DATABASE_AVAILABLE or not context.loan_file_id:
+            return
+            
+        db = self._get_db_session()
+        if not db:
+            return
+            
+        try:
+            # Save email message
+            email_message = EmailMessage(
+                loan_file_id=context.loan_file_id,
+                sender=email_data.get('from', ''),
+                recipient=email_data.get('to', ''),
+                subject=email_data.get('subject', ''),
+                body=email_data.get('body', ''),
+                gmail_message_id=email_data.get('id', ''),
+                gmail_thread_id=context.gmail_thread_id,
+                is_processed=True
+            )
+            db.add(email_message)
+            db.flush()  # Get the ID
+            
+            # Save AI analysis
+            ai_analysis = AIAnalysis(
+                loan_file_id=context.loan_file_id,
+                analysis_text=analysis,
+                summary=analysis[:500] + "..." if len(analysis) > 500 else analysis,
+                conversation_turn=context.conversation_turn,
+                context_summary=context.conversation_summary,
+                new_information=f"Documents: {', '.join(context.received_documents)}"
+            )
+            db.add(ai_analysis)
+            
+            # Save attachments if any
+            for attachment in email_data.get('attachments', []):
+                attachment_record = Attachment(
+                    loan_file_id=context.loan_file_id,
+                    email_message_id=email_message.id,
+                    filename=attachment.get('filename', ''),
+                    doc_type=attachment.get('document_type', 'Unknown'),
+                    uploaded_by=email_data.get('from', ''),
+                    uploaded_at=datetime.utcnow()
+                )
+                db.add(attachment_record)
+            
+            db.commit()
+            print(f"[DATABASE] Saved email and analysis to database for loan file {context.loan_file_id}")
+        except Exception as e:
+            print(f"Error saving to database: {e}")
+            db.rollback()
+        finally:
+            if not self.db_session:  # Only close if we created the session
+                db.close()
     
     def determine_conversation_state(self, email_body: str, attachments: List[str], 
                                    context: ConversationContext) -> str:
@@ -210,8 +346,8 @@ class ConversationManager:
 Thank you for your loan request! We're excited to help you get into your new home faster.
 
 **LOAN SUMMARY:**
-• Loan Amount: ${loan_amount:,}
-• Property Value: ${property_value:,}
+• Loan Amount: {f"${loan_amount:,}" if loan_amount and isinstance(loan_amount, (int, float)) else 'To be determined'}
+• Property Value: {f"${property_value:,}" if property_value and isinstance(property_value, (int, float)) else 'To be determined'}
 • Credit Score: {credit_score}
 • Property Type: {analysis_result.get('property_type', 'N/A')}
 • Location: {analysis_result.get('property_location', 'N/A')}

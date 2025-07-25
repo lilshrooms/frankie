@@ -1,4 +1,4 @@
-/* Modern Dashboard - Professional Design */
+/* Dashboard Container */
 .dashboard-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -83,7 +83,7 @@
   flex-shrink: 0;
 }
 
-/* Professional Header Buttons */
+/* Header Buttons */
 .header-actions .action-btn {
   padding: 12px 24px;
   border-radius: 12px;
@@ -371,6 +371,28 @@
   flex-wrap: wrap;
   align-items: center;
   transition: all 0.2s ease;
+}
+
+.search-filter-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-container, .filter-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon, .filter-icon {
+  position: absolute;
+  left: 12px;
+  color: #64748b;
+  font-size: 16px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .dashboard-controls:hover {
@@ -722,6 +744,42 @@
 .priority-row:hover {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.priority-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.priority-badge.priority-high {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.priority-badge.priority-medium {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.priority-badge.priority-low {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.priority-row.priority-high {
+  border-left: 3px solid #dc2626;
+}
+
+.priority-row.priority-medium {
+  border-left: 3px solid #d97706;
+}
+
+.priority-row.priority-low {
+  border-left: 3px solid #16a34a;
 }
 
 /* Modern Buttons */

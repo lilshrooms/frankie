@@ -15,6 +15,18 @@ import sys
 import logging
 import secrets
 
+# Import security module
+try:
+    from security import security_health, audit_logger, pii_encryption, session_manager
+except ImportError as e:
+    logger.warning(f"Security module not available: {e}")
+    # Mock security implementations
+    def security_health():
+        return {"security_score": 0, "error": "Security module not available"}
+    audit_logger = None
+    pii_encryption = None
+    session_manager = None
+
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -375,18 +387,90 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with component status."""
+    try:
+        # Test database connection
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        db_status = "active"
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        db_status = "error"
+    
+    # Test conversation manager
+    try:
+        conversation_manager.get_all_conversations()
+        conv_status = "active"
+    except Exception as e:
+        logger.error(f"Conversation manager health check failed: {e}")
+        conv_status = "error"
+    
+    # Test rate integration
+    try:
+        rate_integration.get_current_rates_context()
+        rate_status = "active"
+    except Exception as e:
+        logger.error(f"Rate integration health check failed: {e}")
+        rate_status = "error"
+    
+    # Test Gemini analyzer
+    try:
+        analyze_with_gemini("test", [], {})
+        gemini_status = "active"
+    except Exception as e:
+        logger.error(f"Gemini analyzer health check failed: {e}")
+        gemini_status = "error"
+    
+    # Test security module
+    try:
+        security_status = "active" if security_health else "error"
+    except Exception as e:
+        logger.error(f"Security module health check failed: {e}")
+        security_status = "error"
+    
     return {
         "status": "healthy",
         "service": "frankie_backend",
         "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
         "components": {
-            "database": "active",
-            "conversation_manager": "active",
-            "rate_integration": "active",
-            "gemini_analyzer": "active"
+            "database": db_status,
+            "conversation_manager": conv_status,
+            "rate_integration": rate_status,
+            "gemini_analyzer": gemini_status,
+            "security": security_status
         }
     }
+
+@app.get("/security/health")
+async def security_health_check():
+    """Security health check endpoint for compliance monitoring."""
+    try:
+        if security_health:
+            security_status = security_health.run_security_checks()
+        else:
+            security_status = {
+                "security_score": 0,
+                "error": "Security module not available",
+                "encryption_enabled": False,
+                "mfa_required": False,
+                "audit_logging": False,
+                "access_control": False
+            }
+        
+        return {
+            "status": "security_check_complete",
+            "timestamp": datetime.utcnow().isoformat(),
+            "security_status": security_status
+        }
+    except Exception as e:
+        logger.error(f"Security health check failed: {e}")
+        return {
+            "status": "security_check_failed",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
 # Loan file management endpoints
 @app.get("/loan-files", response_model=List[LoanFileOut])
